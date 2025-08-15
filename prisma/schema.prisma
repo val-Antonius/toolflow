@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  type        ItemType  // TOOL or MATERIAL
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  tools     Tool[]
+  materials Material[]
+
+  @@map("categories")
+}
+
+model Tool {
+  id                String        @id @default(cuid())
+  name              String
+  categoryId        String
+  condition         ToolCondition @default(GOOD)
+  totalQuantity     Int           @default(1)
+  availableQuantity Int           @default(1)
+  location          String?
+  supplier          String?
+  purchaseDate      DateTime?
+  purchasePrice     Decimal?      @db.Decimal(10, 2)
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  category      Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  borrowingItems BorrowingItem[]
+
+  @@map("tools")
+  @@index([categoryId])
+  @@index([name])
+}
+
+model Material {
+  id                String  @id @default(cuid())
+  name              String
+  categoryId        String
+  currentQuantity   Decimal @db.Decimal(10, 3)
+  thresholdQuantity Decimal @db.Decimal(10, 3)
+  unit              String
+  location          String?
+  supplier          String?
+  unitPrice         Decimal? @db.Decimal(10, 2)
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  category         Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  consumptionItems ConsumptionItem[]
+
+  @@map("materials")
+  @@index([categoryId])
+  @@index([name])
+}
+
+
+model BorrowingTransaction {
+  id           String                    @id @default(cuid())
+  borrowerName String
+  borrowDate   DateTime                  @default(now())
+  dueDate      DateTime
+  returnDate   DateTime?
+  purpose      String
+  status       BorrowingTransactionStatus @default(ACTIVE)
+  notes        String?                   @db.Text
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  // Relations
+  borrowingItems BorrowingItem[]
+
+  @@map("borrowing_transactions")
+  @@index([status])
+  @@index([dueDate])
+}
+
+model BorrowingItem {
+  id                     String        @id @default(cuid())
+  borrowingTransactionId String
+  toolId                 String
+  quantity               Int
+  originalCondition      ToolCondition
+  returnCondition        ToolCondition?
+  returnDate             DateTime?
+  notes                  String?       @db.Text
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  // Relations
+  borrowingTransaction BorrowingTransaction @relation(fields: [borrowingTransactionId], references: [id], onDelete: Cascade)
+  tool                 Tool                 @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("borrowing_items")
+  @@index([borrowingTransactionId])
+  @@index([toolId])
+}
+
+model ConsumptionTransaction {
+  id               String  @id @default(cuid())
+  consumerName     String
+  consumptionDate  DateTime @default(now())
+  purpose          String
+  projectName      String?
+  totalValue       Decimal? @db.Decimal(12, 2)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  consumptionItems ConsumptionItem[]
+
+  @@map("consumption_transactions")
+  @@index([consumptionDate])
+}
+
+model ConsumptionItem {
+  id                       String  @id @default(cuid())
+  consumptionTransactionId String
+  materialId               String
+  quantity                 Decimal @db.Decimal(10, 3)
+  unitPrice                Decimal? @db.Decimal(10, 2)
+  totalValue               Decimal? @db.Decimal(12, 2)
+  notes                    String?  @db.Text
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  consumptionTransaction ConsumptionTransaction @relation(fields: [consumptionTransactionId], references: [id], onDelete: Cascade)
+  material               Material               @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@map("consumption_items")
+  @@index([consumptionTransactionId])
+  @@index([materialId])
+}
+
+model ActivityLog {
+  id         String           @id @default(cuid())
+  entityType ActivityEntityType
+  entityId   String
+  action     ActivityAction
+  actorName  String?
+  oldValues  Json?
+  newValues  Json?
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  @@map("activity_logs")
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// Enums
+enum ItemType {
+  TOOL
+  MATERIAL
+}
+
+enum ToolCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum BorrowingTransactionStatus {
+  ACTIVE
+  OVERDUE
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityEntityType {
+  TOOL
+  MATERIAL
+  BORROWING_TRANSACTION
+  CONSUMPTION_TRANSACTION
+  USER
+  CATEGORY
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  BORROW
+  RETURN
+  CONSUME
+  EXTEND
+}
