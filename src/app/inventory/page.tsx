@@ -132,6 +132,7 @@ export default function Inventory() {
   const [editItem, setEditItem] = useState<any>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const allItems = [...tools, ...materials];
@@ -142,21 +143,30 @@ export default function Inventory() {
       name: item.name,
       type: item.type,
       category: item.category.name,
-      hasActiveBorrowing: 'hasActiveBorrowing' in item ? item.hasActiveBorrowing : false
+      hasActiveBorrowing: 'hasActiveBorrowing' in item ? item.hasActiveBorrowing : false,
+      available: item.type === 'tool' ? (item as Tool).availableQuantity : (item as Material).currentQuantity,
+      quantity: item.type === 'material' ? (item as Material).currentQuantity : undefined,
+      unit: item.type === 'material' ? (item as Material).unit : undefined
     }));
+
+  const allowedNames = ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'];
+  const toolCategories = categories.filter((cat: any) => cat.type === 'TOOL' && allowedNames.includes(cat.name));
+  const materialCategories = categories.filter((cat: any) => cat.type === 'MATERIAL' && allowedNames.includes(cat.name));
 
   // Load data on component mount and search change
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        const [toolsData, materialsData] = await Promise.all([
+        const [toolsData, materialsData, categoriesData] = await Promise.all([
           fetchTools(searchQuery),
-          fetchMaterials(searchQuery)
+          fetchMaterials(searchQuery),
+          fetch('/api/categories').then(res => res.json()).then(res => res.success ? res.data : [])
         ]);
 
         setTools(toolsData);
         setMaterials(materialsData);
+        setCategories(categoriesData);
       } catch (error) {
         console.error('Error loading inventory data:', error);
       } finally {
@@ -235,24 +245,36 @@ export default function Inventory() {
         // Pisahkan tools dan materials jika mixed
         const toolsToCreate = (formData.items || []).filter((item: any) => item.type === 'tool');
         const materialsToCreate = (formData.items || []).filter((item: any) => item.type === 'material');
+
+        // Helper untuk mapping category name ke ID jika perlu
+        // Asumsi: formData.categories adalah array kategori { id, name }
+        // Gunakan state categories yang sudah di-fetch
+        const getCategoryId = (category: any, type: 'TOOL' | 'MATERIAL') => {
+          if (typeof category === 'string' && category.match(/^\w{8,}$/)) return category; // sudah ID
+          const found = categories.find((cat: any) => cat.name === category && cat.type === type);
+          return found ? found.id : category;
+        };
+
         // Helper untuk mapping payload agar sesuai backend
         const mapToolPayload = (item: any) => ({
           name: item.name,
-          categoryId: item.category, // diasumsikan category adalah id, jika bukan, perlu mapping
+          categoryId: getCategoryId(item.category, 'TOOL'),
           totalQuantity: item.quantity,
-          condition: item.condition || 'good',
+          availableQuantity: item.quantity, // wajib dikirim, default sama dengan total
+          condition: (item.condition ? item.condition : 'GOOD').toUpperCase(), // enum huruf besar
           location: item.location || '',
           supplier: item.supplier || ''
         });
         const mapMaterialPayload = (item: any) => ({
           name: item.name,
-          categoryId: item.category, // diasumsikan category adalah id, jika bukan, perlu mapping
+          categoryId: getCategoryId(item.category, 'MATERIAL'),
           currentQuantity: item.quantity,
           thresholdQuantity: item.threshold || 0,
           unit: item.unit || '',
           location: item.location || '',
           supplier: item.supplier || ''
         });
+        
         // Kirim satu per satu agar error lebih jelas
         for (const tool of toolsToCreate) {
           response = await fetch('/api/tools', {
@@ -273,14 +295,98 @@ export default function Inventory() {
           if (!result.success) throw new Error(result.message || 'Failed to create material');
         }
       }
+      // PROCESS (BORROW/CONSUME)
+      else if (sidebarType === 'process') {
+        console.log('Processing transaction:', formData);
+        if (!formData.type) {
+          throw new Error('Transaction type is required');
+        }
+
+        if (formData.type === 'borrow') {
+          // Transform payload sesuai schema
+          const borrowPayload = {
+            borrowerName: formData.borrowerName,
+            dueDate: new Date(formData.dueDate).toISOString(), // Pastikan format datetime valid
+            purpose: formData.purpose,
+            notes: formData.notes,
+            items: formData.items
+          };
+          console.log('Sending borrow payload:', borrowPayload);
+          response = await fetch('/api/borrowings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(borrowPayload)
+          });
+                } else if (formData.type === 'consume') {
+          // Transform payload sesuai schema
+          const consumePayload = {
+            consumerName: formData.consumerName,
+            purpose: formData.purpose,
+            projectName: formData.projectName,
+            notes: formData.notes,
+            items: formData.items
+          };
+          console.log('Sending consume payload:', consumePayload);
+          try {
+            response = await fetch('/api/consumptions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(consumePayload)
+            });
+            
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || 'Failed to process consumption');
+            }
+            
+            if (!data.success) {
+              throw new Error(data.message || 'Failed to process consumption');
+            }
+          } catch (error: any) {
+            console.error('Consumption error:', error);
+            throw new Error(error.message || 'Failed to process consumption');
+          }
+        } else {
+          throw new Error('Invalid transaction type');
+        }
+
+        if (!response) {
+          throw new Error('Failed to process transaction');
+        }
+        result = await response.json();
+        if (!result.success) throw new Error(result.message || 'Failed to process transaction');
+      }
       // EDIT
       else if (sidebarType === 'edit') {
-        const isTool = formData.type === 'tool';
+        // Gunakan editItem.type untuk menentukan jenis item
+        const isTool = editItem?.type === 'tool';
+        
+        // Transform payload sesuai dengan tipe item
+        const transformedData = isTool
+          ? {
+              name: formData.name,
+              categoryId: formData.categoryId,
+              totalQuantity: Number(formData.totalQuantity),
+              availableQuantity: Number(formData.availableQuantity),
+              condition: formData.condition?.toUpperCase(),
+              location: formData.location,
+              supplier: formData.supplier
+            }
+          : {
+              name: formData.name,
+              categoryId: formData.categoryId,
+              currentQuantity: Number(formData.currentQuantity),
+              thresholdQuantity: Number(formData.thresholdQuantity),
+              unit: formData.unit,
+              location: formData.location,
+              supplier: formData.supplier
+            };
+
         const endpoint = isTool ? `/api/tools/${formData.id}` : `/api/materials/${formData.id}`;
         response = await fetch(endpoint, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(transformedData)
         });
         result = await response.json();
         if (!result.success) throw new Error(result.message || 'Failed to update item');
@@ -753,6 +859,8 @@ export default function Inventory() {
         selectedItems={selectedItemsData}
         editItem={editItem}
         onSubmit={handleFormSubmit}
+        toolCategories={toolCategories}
+        materialCategories={materialCategories}
       />
     </div>
   );

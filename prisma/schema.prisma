@@ -12,7 +12,7 @@ datasource db {
 
 model Category {
   id          String    @id @default(cuid())
-  name        String    @unique
+  name        String
   type        ItemType  // TOOL or MATERIAL
   description String?
   createdAt   DateTime  @default(now())
@@ -22,6 +22,7 @@ model Category {
   tools     Tool[]
   materials Material[]
 
+  @@unique([name, type])
   @@map("categories")
 }
 

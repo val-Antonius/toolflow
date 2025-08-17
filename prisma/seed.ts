@@ -5,55 +5,35 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting database seeding...')
 
-  // Create categories
+  // Create 3 fixed categories for both tools and materials
   console.log('Creating categories...')
-  const toolCategories = await Promise.all([
-    prisma.category.create({
-      data: {
-        name: 'Power Tools',
-        type: 'TOOL',
-        description: 'Electric and battery-powered tools'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Hand Tools',
-        type: 'TOOL',
-        description: 'Manual tools and equipment'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Measuring Tools',
-        type: 'TOOL',
-        description: 'Measurement and precision tools'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Safety Equipment',
-        type: 'TOOL',
-        description: 'Personal protective equipment'
-      }
-    })
-  ])
-
-  const materialCategories = await Promise.all([
-    prisma.category.create({
-      data: {
-        name: 'Construction Materials',
-        type: 'MATERIAL',
-        description: 'Building and construction materials'
-      }
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Electrical Materials',
-        type: 'MATERIAL',
-        description: 'Electrical components and wiring'
-      }
-    })
-  ])
+  // Create categories only if not exist
+  const categories = [];
+  // Use correct enum for type field
+  const CATEGORY_TYPE = {
+    TOOL: 'TOOL',
+    MATERIAL: 'MATERIAL'
+  } as const;
+  for (const cat of [
+    { name: 'Peralatan Lapangan', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk operasional lapangan' },
+    { name: 'Peralatan Kantor', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk kebutuhan kantor' },
+    { name: 'Peralatan Jaringan', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk kebutuhan jaringan' },
+    { name: 'Peralatan Lapangan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk operasional lapangan' },
+    { name: 'Peralatan Kantor', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan kantor' },
+    { name: 'Peralatan Jaringan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan jaringan' }
+  ]) {
+    const existing = await prisma.category.findFirst({ where: { name: cat.name, type: cat.type } });
+    if (existing) {
+      categories.push(existing);
+    } else {
+      const created = await prisma.category.create({ data: {
+        name: cat.name,
+        type: cat.type,
+        description: cat.description
+      }});
+      categories.push(created);
+    }
+  }
 
   // Create tools
   console.log('Creating tools...')
@@ -61,7 +41,7 @@ async function main() {
     prisma.tool.create({
       data: {
         name: 'Kunci Angin',
-        categoryId: toolCategories[0].id, // Power Tools
+        categoryId: categories[0].id, // Peralatan Lapangan (TOOL)
         condition: 'GOOD',
         totalQuantity: 10,
         availableQuantity: 8,
@@ -73,7 +53,7 @@ async function main() {
     prisma.tool.create({
       data: {
         name: 'Set Bor',
-        categoryId: toolCategories[0].id, // Power Tools
+        categoryId: categories[1].id, // Peralatan Kantor (TOOL)
         condition: 'EXCELLENT',
         totalQuantity: 15,
         availableQuantity: 15,
@@ -85,97 +65,13 @@ async function main() {
     prisma.tool.create({
       data: {
         name: 'Meteran',
-        categoryId: toolCategories[2].id, // Measuring Tools
+        categoryId: categories[2].id, // Peralatan Jaringan (TOOL)
         condition: 'GOOD',
         totalQuantity: 25,
         availableQuantity: 22,
         location: 'Warehouse B',
         supplier: 'Precision Tools Ltd',
         purchasePrice: 150000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Perlengkapan Keselamatan',
-        categoryId: toolCategories[3].id, // Safety Equipment
-        condition: 'GOOD',
-        totalQuantity: 10,
-        availableQuantity: 7,
-        location: 'Safety Storage',
-        supplier: 'Safety First Inc',
-        purchasePrice: 500000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Gergaji Listrik',
-        categoryId: toolCategories[0].id, // Power Tools
-        condition: 'GOOD',
-        totalQuantity: 5,
-        availableQuantity: 4,
-        location: 'Warehouse A',
-        supplier: 'Tool Corp',
-        purchasePrice: 3500000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Obeng Set',
-        categoryId: toolCategories[1].id, // Hand Tools
-        condition: 'GOOD',
-        totalQuantity: 20,
-        availableQuantity: 20,
-        location: 'Warehouse B',
-        supplier: 'Handy Tools',
-        purchasePrice: 200000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Tang Kombinasi',
-        categoryId: toolCategories[1].id, // Hand Tools
-        condition: 'GOOD',
-        totalQuantity: 18,
-        availableQuantity: 18,
-        location: 'Warehouse B',
-        supplier: 'Handy Tools',
-        purchasePrice: 180000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Waterpass',
-        categoryId: toolCategories[2].id, // Measuring Tools
-        condition: 'GOOD',
-        totalQuantity: 12,
-        availableQuantity: 12,
-        location: 'Warehouse B',
-        supplier: 'Precision Tools Ltd',
-        purchasePrice: 120000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Helm Safety',
-        categoryId: toolCategories[3].id, // Safety Equipment
-        condition: 'GOOD',
-        totalQuantity: 30,
-        availableQuantity: 30,
-        location: 'Safety Storage',
-        supplier: 'Safety First Inc',
-        purchasePrice: 100000
-      }
-    }),
-    prisma.tool.create({
-      data: {
-        name: 'Sepatu Boot',
-        categoryId: toolCategories[3].id, // Safety Equipment
-        condition: 'GOOD',
-        totalQuantity: 15,
-        availableQuantity: 15,
-        location: 'Safety Storage',
-        supplier: 'Safety First Inc',
-        purchasePrice: 250000
       }
     })
   ])
@@ -186,7 +82,7 @@ async function main() {
     prisma.material.create({
       data: {
         name: 'Besi Beton',
-        categoryId: materialCategories[0].id, // Construction Materials
+        categoryId: categories[3].id, // Peralatan Lapangan (MATERIAL)
         currentQuantity: 150,
         thresholdQuantity: 50,
         unit: 'kg',
@@ -198,7 +94,7 @@ async function main() {
     prisma.material.create({
       data: {
         name: 'Semen Cor',
-        categoryId: materialCategories[0].id, // Construction Materials
+        categoryId: categories[4].id, // Peralatan Kantor (MATERIAL)
         currentQuantity: 500,
         thresholdQuantity: 100,
         unit: 'kg',
@@ -209,105 +105,21 @@ async function main() {
     }),
     prisma.material.create({
       data: {
-        name: 'Kabel Listrik',
-        categoryId: materialCategories[1].id, // Electrical Materials
+        name: 'Kabel Jaringan',
+        categoryId: categories[5].id, // Peralatan Jaringan (MATERIAL)
         currentQuantity: 1000,
         thresholdQuantity: 200,
         unit: 'meter',
-        location: 'Electrical Storage',
-        supplier: 'Electric Supply Co',
+        location: 'Network Storage',
+        supplier: 'Network Supply Co',
         unitPrice: 25000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Kawat Las',
-        categoryId: materialCategories[1].id, // Electrical Materials
-        currentQuantity: 25,
-        thresholdQuantity: 50,
-        unit: 'kg',
-        location: 'Welding Section',
-        supplier: 'Welding Supplies Inc',
-        unitPrice: 45000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Paku Beton',
-        categoryId: materialCategories[0].id, // Construction Materials
-        currentQuantity: 200,
-        thresholdQuantity: 40,
-        unit: 'box',
-        location: 'Storage Section B-10',
-        supplier: 'Materials Ltd',
-        unitPrice: 30000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Cat Tembok',
-        categoryId: materialCategories[0].id, // Construction Materials
-        currentQuantity: 60,
-        thresholdQuantity: 20,
-        unit: 'can',
-        location: 'Storage Section C-2',
-        supplier: 'Paint Supplies',
-        unitPrice: 80000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Pipa PVC',
-        categoryId: materialCategories[1].id, // Electrical Materials
-        currentQuantity: 120,
-        thresholdQuantity: 30,
-        unit: 'meter',
-        location: 'Plumbing Storage',
-        supplier: 'Plumbing Co',
-        unitPrice: 20000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Batu Bata',
-        categoryId: materialCategories[0].id, // Construction Materials
-        currentQuantity: 1000,
-        thresholdQuantity: 200,
-        unit: 'pcs',
-        location: 'Storage Section D-1',
-        supplier: 'Materials Ltd',
-        unitPrice: 1000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Triplek',
-        categoryId: materialCategories[0].id, // Construction Materials
-        currentQuantity: 80,
-        thresholdQuantity: 20,
-        unit: 'sheet',
-        location: 'Storage Section E-3',
-        supplier: 'Wood Supplies',
-        unitPrice: 70000
-      }
-    }),
-    prisma.material.create({
-      data: {
-        name: 'Siku Besi',
-        categoryId: materialCategories[0].id, // Construction Materials
-        currentQuantity: 60,
-        thresholdQuantity: 15,
-        unit: 'batang',
-        location: 'Storage Section F-4',
-        supplier: 'Materials Ltd',
-        unitPrice: 40000
       }
     })
   ])
 
   console.log('✅ Database seeding completed successfully!')
   console.log(`Created:
-  - ${toolCategories.length + materialCategories.length} categories
+  - ${categories.length} categories
   - ${tools.length} tools
   - ${materials.length} materials`)
 }

@@ -15,52 +15,16 @@ import {
 // GET /api/categories - Get all categories with optional filtering
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const { page, limit, skip } = getPaginationParams(searchParams)
-    const search = searchParams.get('search') || undefined
-    const type = searchParams.get('type') || undefined
-    const sortBy = searchParams.get('sortBy') || 'createdAt'
-    const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
-
-    // Build filters
-    const where: any = {
-      ...buildSearchFilter(search, ['name', 'description']),
-    }
-
-    if (type && (type === 'TOOL' || type === 'MATERIAL')) {
-      where.type = type
-    }
-
-    // Get categories with pagination
-    const [categories, total] = await Promise.all([
-      prisma.category.findMany({
-        where,
-        orderBy: buildSortOrder(sortBy, sortOrder),
-        skip,
-        take: limit,
-        include: {
-          _count: {
-            select: {
-              tools: true,
-              materials: true,
-            },
-          },
-        },
-      }),
-      prisma.category.count({ where }),
-    ])
-
-    const totalPages = Math.ceil(total / limit)
-
-    return successResponse(categories, undefined, {
-      page,
-      limit,
-      total,
-      totalPages,
-    })
+    // Ambil hanya 3 kategori tetap
+    const categories = await prisma.category.findMany({
+      where: {
+        name: { in: ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'] }
+      }
+    });
+    return successResponse(categories);
   } catch (error) {
     console.error('Error fetching categories:', error)
-    return handleDatabaseError(error)
+    return handleDatabaseError(error);
   }
 }
 
@@ -74,13 +38,13 @@ export async function POST(request: NextRequest) {
 
     const { name, type, description } = validation.data
 
-    // Check if category with same name already exists
-    const existingCategory = await prisma.category.findUnique({
-      where: { name },
+    // Check if category with same name and type already exists
+    const existingCategory = await prisma.category.findFirst({
+      where: { name, type },
     })
 
     if (existingCategory) {
-      return errorResponse('Category with this name already exists', 409)
+      return errorResponse('Category with this name and type already exists', 409)
     }
 
     // Create category

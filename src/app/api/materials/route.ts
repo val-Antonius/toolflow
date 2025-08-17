@@ -116,13 +116,13 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data
 
-    // Verify category exists and is of type MATERIAL
+    // Verify category exists and is one of the 3 allowed
     const category = await prisma.category.findUnique({
       where: { id: data.categoryId },
     })
 
-    if (!category) {
-      return errorResponse('Category not found', 404)
+    if (!category || !['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'].includes(category.name)) {
+      return errorResponse('Category not found or not allowed', 404)
     }
 
     if (category.type !== 'MATERIAL') {

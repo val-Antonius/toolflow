@@ -30,6 +30,7 @@ interface InventoryItem {
   total?: number;
   threshold?: number;
   supplier?: string;
+  location?: string;
 }
 
 interface SelectedItem extends InventoryItem {
@@ -55,16 +56,11 @@ interface SidebarFormProps {
   selectedItems?: SelectedItem[];
   editItem?: InventoryItem;
   onSubmit: (formData: any) => void;
+  toolCategories?: Array<{ id: string; name: string; type: string }>;
+  materialCategories?: Array<{ id: string; name: string; type: string }>;
 }
 
-const categories = [
-  { value: 'power-tools', label: 'Power Tools' },
-  { value: 'hand-tools', label: 'Hand Tools' },
-  { value: 'construction', label: 'Construction Materials' },
-  { value: 'electrical', label: 'Electrical' },
-  { value: 'safety', label: 'Safety Equipment' },
-  { value: 'measuring', label: 'Measuring Tools' }
-];
+// Kategori sekarang berasal dari prop, bukan hardcoded
 
 const conditions = [
   { value: 'excellent', label: 'Excellent' },
@@ -81,54 +77,208 @@ const units = [
   { value: 'boxes', label: 'Boxes' }
 ];
 
-export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], editItem, onSubmit }: SidebarFormProps) {
+
+export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], editItem, onSubmit, toolCategories = [], materialCategories = [] }: SidebarFormProps) {
   const [formData, setFormData] = useState<any>({});
-  const [newItems, setNewItems] = useState<NewItem[]>([{ name: '', type: 'tool', category: '', quantity: 1, condition: 'good', location: '', supplier: '' }]);
+  const [newItems, setNewItems] = useState<NewItem[]>([
+    {
+      name: '',
+      type: 'tool',
+      category: toolCategories[0]?.id || '',
+      quantity: 1,
+      condition: 'good',
+      location: '',
+      supplier: ''
+    }
+  ]);
   const [processType, setProcessType] = useState<'borrow' | 'consume'>('borrow');
+  const [borrowForm, setBorrowForm] = useState({
+    borrowerName: '',
+    dueDate: '',
+    purpose: '',
+    notes: ''
+  });
+  const [consumeForm, setConsumeForm] = useState({
+    consumerName: '',
+    purpose: '',
+    projectName: '',
+    notes: ''
+  });
+  const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
 
   // Check if selected items contain both tools and materials
   const hasTools = selectedItems.some(item => item.type === 'tool');
   const hasMaterials = selectedItems.some(item => item.type === 'material');
   const hasMixed = hasTools && hasMaterials;
 
+  // Set process type based on selected items
+  useEffect(() => {
+    if (!hasMixed) {
+      if (hasTools) {
+        setProcessType('borrow');
+      } else if (hasMaterials) {
+        setProcessType('consume');
+      }
+    }
+  }, [hasTools, hasMaterials, hasMixed]);
+
   // Filter items by type for process form
   const selectedTools = selectedItems.filter(item => item.type === 'tool');
   const selectedMaterials = selectedItems.filter(item => item.type === 'material');
+
+  const validateMaterialQuantities = () => {
+  const invalidItems = selectedItems
+    .filter(item => item.type === 'material')
+    .filter(item => {
+      const requestedQty = itemQuantities[item.id] || 0.001;
+      const availableQty = item.quantity || 0;
+      return requestedQty > availableQty;
+    });
+
+  if (invalidItems.length > 0) {
+    const itemList = invalidItems
+      .map(item => `${item.name} (Requested: ${itemQuantities[item.id]}, Available: ${item.quantity})`)
+      .join(', ');
+    throw new Error(`Insufficient stock for: ${itemList}`);
+  }
+};
 
   useEffect(() => {
     if (type === 'edit' && editItem) {
       setFormData({
         name: editItem.name,
         category: editItem.category,
-        quantity: editItem.quantity || editItem.total || 1,
-        unit: editItem.unit || 'pieces',
-        condition: editItem.condition || 'good',
-        threshold: editItem.threshold || 10,
-        supplier: editItem.supplier || ''
+        location: editItem.location || '',
+        supplier: editItem.supplier || '',
+        ...(editItem.type === 'tool' 
+          ? {
+              quantity: editItem.total || 1,
+              condition: (editItem.condition || 'good').toLowerCase(),
+            }
+          : {
+              quantity: editItem.quantity || 0,
+              unit: editItem.unit || 'pieces',
+              threshold: editItem.threshold || 10,
+            })
       });
     } else {
       setFormData({});
     }
   }, [type, editItem, isOpen]);
 
+  // Initialize item quantities when items are selected
+  useEffect(() => {
+    if (selectedItems.length > 0) {
+      const initialQuantities: Record<string, number> = {};
+      selectedItems.forEach(item => {
+        initialQuantities[item.id] = item.type === 'tool' ? 1 : 0.001;
+      });
+      setItemQuantities(initialQuantities);
+    }
+  }, [selectedItems]);
+
+  // Reset form data when sidebar closes
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData({});
+      setBorrowForm({
+        borrowerName: '',
+        dueDate: '',
+        purpose: '',
+        notes: ''
+      });
+      setConsumeForm({
+        consumerName: '',
+        purpose: '',
+        projectName: '',
+        notes: ''
+      });
+      setItemQuantities({});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted:', { type, borrowForm, consumeForm, itemQuantities });
 
     switch (type) {
       case 'create':
         onSubmit({ items: newItems });
         break;
       case 'edit':
-        onSubmit({ ...formData, id: editItem?.id });
+        const editPayload = editItem?.type === 'tool' 
+          ? {
+              id: editItem.id,
+              name: formData.name,
+              categoryId: formData.category,
+              location: formData.location,
+              supplier: formData.supplier,
+              totalQuantity: formData.quantity,
+              availableQuantity: formData.quantity,
+              condition: formData.condition?.toUpperCase()
+            }
+          : {
+              id: editItem?.id,
+              name: formData.name,
+              categoryId: formData.category,
+              location: formData.location,
+              supplier: formData.supplier,
+              currentQuantity: formData.quantity,
+              thresholdQuantity: formData.threshold,
+              unit: formData.unit
+            };
+        onSubmit(editPayload);
         break;
       case 'process':
-        onSubmit({
-          type: processType,
-          items: selectedItems,
-          ...formData
-        });
+        if (processType === 'borrow' && (hasMixed || hasTools)) {
+          // Validate required fields for borrowing
+          if (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose) {
+            throw new Error('Please fill all required fields for borrowing');
+          }
+
+          const dueDate = new Date(borrowForm.dueDate);
+          if (isNaN(dueDate.getTime())) {
+            throw new Error('Invalid due date');
+          }
+
+          const borrowPayload = {
+            type: 'borrow',
+            borrowerName: borrowForm.borrowerName,
+            dueDate: dueDate.toISOString(),
+            purpose: borrowForm.purpose,
+            notes: borrowForm.notes,
+            items: selectedItems
+              .filter(item => item.type === 'tool')
+              .map(tool => ({
+                toolId: tool.id,
+                quantity: Math.max(1, itemQuantities[tool.id] || 1) // Pastikan minimal 1
+              }))
+          };
+          onSubmit(borrowPayload);
+        } else {
+          // Validate required fields for consuming
+          if (!consumeForm.consumerName || !consumeForm.purpose) {
+            throw new Error('Please fill all required fields for consumption');
+          }
+          // Validate material quantities
+          validateMaterialQuantities();
+          const consumePayload = {
+            type: 'consume',
+            consumerName: consumeForm.consumerName,
+            purpose: consumeForm.purpose,
+            projectName: consumeForm.projectName || undefined, // Make undefined if empty
+            notes: consumeForm.notes || undefined, // Make undefined if empty
+            items: selectedItems
+              .filter(item => item.type === 'material')
+              .map(material => ({
+                materialId: material.id,
+                quantity: Math.max(0.001, itemQuantities[material.id] || 0.001)
+              }))
+          };
+          onSubmit(consumePayload);
+}
         break;
       case 'delete':
         onSubmit({ items: selectedItems });
@@ -139,7 +289,18 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   };
 
   const addNewItem = () => {
-    setNewItems(prev => [...prev, { name: '', type: 'tool', category: '', quantity: 1, condition: 'good', location: '', supplier: '' }]);
+    setNewItems(prev => [
+      ...prev,
+      {
+        name: '',
+        type: 'tool',
+        category: toolCategories[0]?.id || '',
+        quantity: 1,
+        condition: 'good',
+        location: '',
+        supplier: ''
+      }
+    ]);
   };
 
   const removeNewItem = (index: number) => {
@@ -149,9 +310,17 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   };
 
   const updateNewItem = (index: number, field: string, value: any) => {
-    setNewItems(prev => prev.map((item, i) =>
-      i === index ? { ...item, [field]: value } : item
-    ));
+    setNewItems(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      if (field === 'type') {
+        return {
+          ...item,
+          type: value,
+          category: value === 'tool' ? (toolCategories[0]?.id || '') : (materialCategories[0]?.id || '')
+        };
+      }
+    return { ...item, [field]: value };
+    }));
   };
 
   const getTitle = () => {
@@ -176,7 +345,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         </Button>
       </div>
 
-      {newItems.map((item, index) => (
+  {newItems.map((item: NewItem, index: number) => (
         <div key={index} className="p-4 border rounded-lg bg-gray-50/50 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Item {index + 1}</h4>
@@ -218,8 +387,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  {(item.type === 'tool' ? toolCategories : materialCategories).map((cat: { id: string; name: string; type: string }) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -321,8 +490,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             <SelectValue placeholder="Pilih kategori" />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+            {(editItem?.type === 'tool' ? toolCategories : materialCategories).map((cat: { id: string; name: string; type: string }) => (
+              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -453,20 +622,20 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <div>
           <Label>Borrower Name</Label>
           <Input
-            value={formData.borrower || ''}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, borrower: e.target.value }))}
+            value={borrowForm.borrowerName}
+            onChange={(e) => setBorrowForm(prev => ({ ...prev, borrowerName: e.target.value }))}
             placeholder="Enter borrower name"
             required
           />
         </div>
 
         <div>
-          <Label>Return Date</Label>
+          <Label>Due Date</Label>
           <Input
-            type="date"
-            value={formData.returnDate || ''}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, returnDate: e.target.value }))}
-            min={new Date().toISOString().split('T')[0]}
+            type="datetime-local"
+            value={borrowForm.dueDate}
+            onChange={(e) => setBorrowForm(prev => ({ ...prev, dueDate: e.target.value }))}
+            min={new Date().toISOString().slice(0, 16)}
             required
           />
         </div>
@@ -475,30 +644,57 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       <div>
         <Label>Purpose</Label>
         <Textarea
-          value={formData.purpose || ''}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, purpose: e.target.value }))}
+          value={borrowForm.purpose}
+          onChange={(e) => setBorrowForm(prev => ({ ...prev, purpose: e.target.value }))}
           placeholder="Describe the purpose of borrowing these tools..."
           required
         />
       </div>
 
+      <div>
+        <Label>Additional Notes</Label>
+        <Textarea
+          value={borrowForm.notes || ''}
+          onChange={(e) => setBorrowForm(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="Any additional notes..."
+        />
+      </div>
+
       <div className="space-y-3">
         <Label>Tools to Borrow</Label>
-        {items.map((item, index) => (
+        {items.map((item) => (
           <div key={item.id} className="p-3 border rounded-lg bg-gray-50">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{item.name}</p>
-                <p className="text-sm text-muted-foreground">Available: {item.available}/{item.total}</p>
+                <p className="text-sm text-muted-foreground">Available: {item.available || 0}</p>
               </div>
-              <div className="w-24">
-                <Input
-                  type="number"
-                  defaultValue="1"
-                  min="1"
-                  max={item.available}
-                  className="text-center"
-                />
+              <div className="flex items-center gap-2">
+                <Label htmlFor={`borrow-quantity-${item.id}`}>Quantity:</Label>
+                  <Input
+                    id={`borrow-quantity-${item.id}`}
+                    name={`borrow-quantity-${item.id}`}
+                    type="number"
+                    value={itemQuantities[item.id] || 1}
+                    onChange={(e) => {
+                      console.log('Borrow quantity onChange triggered');
+                      console.log('Current value:', e.target.value);
+                      console.log('Current itemQuantities:', itemQuantities);
+                      const value = Math.max(1, Math.min(parseInt(e.target.value) || 1, item.available || 1));
+                      console.log('Calculated value:', value);
+                      setItemQuantities(prev => ({
+                        ...prev,
+                        [item.id]: value
+                      }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    min={1}
+                    max={item.available || 1}
+                    step={1}
+                    className="w-20"
+                    required
+                  />
+                <span className="text-sm text-muted-foreground">/ {item.available || 0}</span>
               </div>
             </div>
           </div>
@@ -518,39 +714,55 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <Label>Consumer Name</Label>
+          <Label htmlFor="consume-consumer-name">Consumer Name</Label>
           <Input
-            value={formData.consumer || ''}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, consumer: e.target.value }))}
+            id="consume-consumer-name"
+            name="consume-consumer-name"
+            value={consumeForm.consumerName}
+            onChange={(e) => setConsumeForm(prev => ({ ...prev, consumerName: e.target.value }))}
             placeholder="Enter consumer name"
             required
           />
         </div>
 
         <div>
-          <Label>Contact Email</Label>
+          <Label htmlFor="consume-project-name">Project Name</Label>
           <Input
-            type="email"
-            value={formData.contactEmail || ''}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, contactEmail: e.target.value }))}
-            placeholder="consumer@company.com"
+            id="consume-project-name"
+            name="consume-project-name"
+            value={consumeForm.projectName}
+            onChange={(e) => setConsumeForm(prev => ({ ...prev, projectName: e.target.value }))}
+            placeholder="Optional project name"
           />
         </div>
       </div>
 
       <div>
-        <Label>Purpose</Label>
+        <Label htmlFor="consume-purpose">Purpose</Label>
         <Textarea
-          value={formData.purpose || ''}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, purpose: e.target.value }))}
+          id="consume-purpose"
+          name="consume-purpose"
+          value={consumeForm.purpose}
+          onChange={(e) => setConsumeForm(prev => ({ ...prev, purpose: e.target.value }))}
           placeholder="Describe the purpose of consuming these materials..."
           required
         />
       </div>
 
+      <div>
+        <Label htmlFor="consume-notes">Additional Notes</Label>
+        <Textarea
+          id="consume-notes"
+          name="consume-notes"
+          value={consumeForm.notes}
+          onChange={(e) => setConsumeForm(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="Any additional notes..."
+        />
+      </div>
+
       <div className="space-y-3">
         <Label>Materials to Consume</Label>
-        {items.map((item, index) => (
+        {items.map((item) => (
           <div key={item.id} className="p-3 border rounded-lg bg-gray-50">
             <div className="flex items-center justify-between">
               <div>
@@ -559,13 +771,30 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                   Available: {item.quantity} {item.unit}
                 </p>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor={`consume-quantity-${item.id}`}>Quantity:</Label>
                 <Input
+                  id={`consume-quantity-${item.id}`}
+                  name={`consume-quantity-${item.id}`}
                   type="number"
-                  defaultValue="1"
-                  min="1"
-                  max={item.quantity}
-                  className="w-24 text-center"
+                  value={itemQuantities[item.id] || 0.001}
+                  onChange={(e) => {
+                    console.log('Consume quantity onChange triggered');
+                    console.log('Current value:', e.target.value);
+                    console.log('Current itemQuantities:', itemQuantities);
+                    const value = parseFloat(e.target.value) || 0.001;
+                    console.log('Calculated value:', value);
+                    setItemQuantities(prev => ({
+                      ...prev,
+                      [item.id]: Number(Math.max(0.001, Math.min(value, item.quantity || 0)).toFixed(3))
+                    }));
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  min="0.001"
+                  max={item.quantity || 0}
+                  step="0.001"
+                  className="w-20"
+                  required
                 />
                 <span className="text-sm text-muted-foreground">{item.unit}</span>
               </div>
