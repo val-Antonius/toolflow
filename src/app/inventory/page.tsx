@@ -312,12 +312,26 @@ export default function Inventory() {
             items: formData.items
           };
           console.log('Sending borrow payload:', borrowPayload);
-          response = await fetch('/api/borrowings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(borrowPayload)
-          });
-                } else if (formData.type === 'consume') {
+          try {
+            response = await fetch('/api/borrowings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(borrowPayload)
+            });
+            
+            result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.error || 'Failed to process borrowing');
+            }
+            
+            if (!result.success) {
+              throw new Error(result.message || 'Failed to process borrowing');
+            }
+          } catch (error: any) {
+            console.error('Borrowing error:', error);
+            throw new Error(error.message || 'Failed to process borrowing');
+          }
+        } else if (formData.type === 'consume') {
           // Transform payload sesuai schema
           const consumePayload = {
             consumerName: formData.consumerName,
@@ -334,13 +348,13 @@ export default function Inventory() {
               body: JSON.stringify(consumePayload)
             });
             
-            const data = await response.json();
+            result = await response.json();
             if (!response.ok) {
-              throw new Error(data.error || 'Failed to process consumption');
+              throw new Error(result.error || 'Failed to process consumption');
             }
             
-            if (!data.success) {
-              throw new Error(data.message || 'Failed to process consumption');
+            if (!result.success) {
+              throw new Error(result.message || 'Failed to process consumption');
             }
           } catch (error: any) {
             console.error('Consumption error:', error);
@@ -353,8 +367,6 @@ export default function Inventory() {
         if (!response) {
           throw new Error('Failed to process transaction');
         }
-        result = await response.json();
-        if (!result.success) throw new Error(result.message || 'Failed to process transaction');
       }
       // EDIT
       else if (sidebarType === 'edit') {

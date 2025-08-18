@@ -32,12 +32,7 @@ interface BorrowingTransaction {
   status: string;
   purpose: string;
   createdAt: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    department?: string;
-  };
+  borrowerName: string;
   borrowingItems: Array<{
     id: string;
     quantity: number;
@@ -62,12 +57,7 @@ interface ConsumptionTransaction {
   purpose: string;
   projectName?: string;
   createdAt: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    department?: string;
-  };
+  consumerName: string;
   consumptionItems: Array<{
     id: string;
     quantity: number;
@@ -325,10 +315,13 @@ export default function Activities() {
                   </tr>
                 </thead>
                 <tbody>
-                  {borrowings.filter(borrowing =>
-                    borrowing.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    borrowing.purpose.toLowerCase().includes(searchQuery.toLowerCase())
-                  ).map((borrowing) => (
+                  {borrowings.filter(borrowing => {
+                    const borrowerName = borrowing.borrowerName || '';
+                    const purpose = borrowing.purpose || '';
+                    const searchTerm = searchQuery.toLowerCase();
+                    return borrowerName.toLowerCase().includes(searchTerm) ||
+                           purpose.toLowerCase().includes(searchTerm);
+                  }).map((borrowing) => (
                     <tr
                       key={borrowing.id}
                       className={cn(
@@ -340,8 +333,8 @@ export default function Activities() {
                         <div className="flex items-center space-x-3">
                           <User className="w-4 h-4 text-muted-foreground" />
                           <div>
-                            <p className="font-medium text-sm">{borrowing.user.name}</p>
-                            <p className="text-xs text-muted-foreground">{borrowing.user.email}</p>
+                            <p className="font-medium text-sm">{borrowing.borrowerName}</p>
+                            {/* <p className="text-xs text-muted-foreground">{borrowing.user.email}</p> */}
                           </div>
                         </div>
                       </td>
@@ -433,7 +426,7 @@ export default function Activities() {
                 </thead>
                 <tbody>
                   {consumptions.filter(consumption =>
-                    consumption.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    consumption.consumerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     consumption.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     (consumption.projectName && consumption.projectName.toLowerCase().includes(searchQuery.toLowerCase()))
                   ).map((consumption) => (
@@ -445,8 +438,8 @@ export default function Activities() {
                         <div className="flex items-center space-x-3">
                           <User className="w-4 h-4 text-muted-foreground" />
                           <div>
-                            <p className="font-medium text-sm">{consumption.user.name}</p>
-                            <p className="text-xs text-muted-foreground">{consumption.user.email}</p>
+                            <p className="font-medium text-sm">{consumption.consumerName}</p>
+                            {/* <p className="text-xs text-muted-foreground">{consumption.user.email}</p> */}
                           </div>
                         </div>
                       </td>
@@ -565,7 +558,9 @@ export default function Activities() {
                             <td className="py-4 px-4">
                               <div className="flex items-center space-x-2">
                                 <User className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">{transaction.user.name}</span>
+                                <span className="text-sm font-medium">
+                                  {isBorrowing ? transaction.borrowerName : transaction.consumerName}
+                                </span>
                               </div>
                             </td>
                             <td className="py-4 px-4">
@@ -652,15 +647,15 @@ export default function Activities() {
         type={sidebarType}
         borrowing={selectedBorrowing ? {
           id: selectedBorrowing.id,
-          borrower: selectedBorrowing.user?.name || '',
+          borrower: selectedBorrowing.borrowerName || 'Unknown User',
           items: selectedBorrowing.borrowingItems?.map((item: any) => ({
             id: item.id,
-            name: item.tool.name,
-            quantity: item.quantity,
-            originalCondition: item.originalCondition
-          })) || [],
-          dueDate: selectedBorrowing.dueDate || '',
-          purpose: selectedBorrowing.purpose || ''
+            name: item.tool?.name || 'Unknown Tool',
+            quantity: item.quantity || 0,
+            originalCondition: item.originalCondition || 'UNKNOWN'
+          })).filter(Boolean) || [],
+          dueDate: selectedBorrowing.dueDate || new Date().toISOString(),
+          purpose: selectedBorrowing.purpose || 'No purpose specified'
         } : undefined}
         onSubmit={handleFormSubmit}
       />
