@@ -3,10 +3,11 @@ import { Button } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
 import { cn } from '@/lib/utils';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ArrowRight } from 'lucide-react';
+import { Select } from './select';
 
 interface ConditionItem {
-  condition: 'good' | 'fair' | 'poor';
+  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   quantity: number;
 }
 
@@ -18,10 +19,17 @@ interface ConditionPickerProps {
   className?: string;
 }
 
+interface TransferState {
+  fromCondition: string;
+  toCondition: string;
+  quantity: number;
+}
+
 const conditionOptions = [
-  { value: 'good', label: 'Baik', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  { value: 'fair', label: 'Cukup', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  { value: 'poor', label: 'Buruk', color: 'bg-red-100 text-red-800 border-red-200' },
+  { value: 'EXCELLENT', label: 'Excellent', color: 'bg-green-100 text-green-800 border-green-200' },
+  { value: 'GOOD', label: 'Good', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: 'FAIR', label: 'Fair', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  { value: 'POOR', label: 'Poor', color: 'bg-red-100 text-red-800 border-red-200' },
 ];
 
 export function ConditionPicker({ 
@@ -34,9 +42,27 @@ export function ConditionPicker({
   const [conditions, setConditions] = useState<ConditionItem[]>([
     { condition: originalCondition as any, quantity: totalQuantity }
   ]);
+  const [transferState, setTransferState] = useState<TransferState>({
+    fromCondition: '',
+    toCondition: '',
+    quantity: 1
+  });
+  const [showTransfer, setShowTransfer] = useState(false);
 
   const updateQuantity = (index: number, newQuantity: number) => {
     const updatedConditions = [...conditions];
+    const oldQuantity = updatedConditions[index].quantity;
+    const diff = newQuantity - oldQuantity;
+    
+    // Check if the new total would exceed totalQuantity
+    const currentTotal = conditions.reduce((sum, item, i) => 
+      sum + (i === index ? newQuantity : item.quantity), 0);
+    
+    if (currentTotal > totalQuantity) {
+      alert(`Total quantity cannot exceed ${totalQuantity}`);
+      return;
+    }
+
     updatedConditions[index].quantity = Math.max(0, newQuantity);
     
     // Remove items with 0 quantity
@@ -46,22 +72,50 @@ export function ConditionPicker({
     onConditionsChange(filteredConditions);
   };
 
-  const addCondition = (condition: 'good' | 'fair' | 'poor') => {
-    const existingIndex = conditions.findIndex(item => item.condition === condition);
+  const handleTransfer = () => {
+    if (!transferState.fromCondition || !transferState.toCondition || transferState.quantity <= 0) {
+      alert('Please select source and destination conditions and enter a valid quantity');
+      return;
+    }
 
-    if (existingIndex >= 0) {
-      updateQuantity(existingIndex, conditions[existingIndex].quantity + 1);
+    const fromIndex = conditions.findIndex(item => item.condition === transferState.fromCondition);
+    if (fromIndex === -1) {
+      alert('Source condition not found');
+      return;
+    }
+
+    if (conditions[fromIndex].quantity < transferState.quantity) {
+      alert(`Cannot transfer ${transferState.quantity} items. Only ${conditions[fromIndex].quantity} available.`);
+      return;
+    }
+
+    // Update or add destination condition
+    const toIndex = conditions.findIndex(item => item.condition === transferState.toCondition);
+    const updatedConditions = [...conditions];
+
+    if (toIndex >= 0) {
+      updatedConditions[toIndex].quantity += transferState.quantity;
     } else {
-      const newConditions = [...conditions, { condition, quantity: 1 }];
-      setConditions(newConditions);
-      onConditionsChange(newConditions);
+      updatedConditions.push({
+        condition: transferState.toCondition as any,
+        quantity: transferState.quantity
+      });
     }
 
-    // Reduce from the first available condition with quantity > 1
-    const sourceIndex = conditions.findIndex(item => item.quantity > 1);
-    if (sourceIndex >= 0) {
-      updateQuantity(sourceIndex, conditions[sourceIndex].quantity - 1);
-    }
+    // Reduce quantity from source
+    updatedConditions[fromIndex].quantity -= transferState.quantity;
+
+    // Filter out any conditions with 0 quantity
+    const filteredConditions = updatedConditions.filter(item => item.quantity > 0);
+    
+    setConditions(filteredConditions);
+    onConditionsChange(filteredConditions);
+    setShowTransfer(false);
+    setTransferState({
+      fromCondition: '',
+      toCondition: '',
+      quantity: 1
+    });
   };
 
   const totalAssigned = conditions.reduce((sum, item) => sum + item.quantity, 0);
@@ -87,63 +141,89 @@ export function ConditionPicker({
                 <Badge className={cn("text-xs", conditionInfo?.color)}>
                   {conditionInfo?.label}
                 </Badge>
-                <span className="text-sm">Quantity:</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => updateQuantity(index, item.quantity - 1)}
-                  disabled={item.quantity <= 1 && conditions.length === 1}
-                >
-                  <Minus className="w-3 h-3" />
-                </Button>
-                <Input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    updateQuantity(index, parseInt(e.target.value) || 0);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-16 text-center"
-                  min="0"
-                  max={totalQuantity}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => updateQuantity(index, item.quantity + 1)}
-                  disabled={totalAssigned >= totalQuantity}
-                >
-                  <Plus className="w-3 h-3" />
-                </Button>
+                <span className="text-sm">Quantity: {item.quantity}</span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add New Condition */}
-      {totalAssigned < totalQuantity && (
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Add items to different condition:</p>
-          <div className="flex flex-wrap gap-2">
-            {conditionOptions.map((option) => (
-              <Button
-                key={option.value}
-                size="sm"
-                variant="outline"
-                onClick={() => addCondition(option.value as any)}
-                className="text-xs"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                {option.label}
-              </Button>
-            ))}
-          </div>
+      {/* Transfer Between Conditions */}
+      <div className="space-y-4 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium">Transfer Items</h4>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowTransfer(!showTransfer)}
+          >
+            {showTransfer ? 'Hide Transfer' : 'Show Transfer'}
+          </Button>
         </div>
-      )}
+
+        {showTransfer && (
+          <div className="p-4 rounded-lg border bg-gray-50/50 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">From Condition</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 p-2"
+                  value={transferState.fromCondition}
+                  onChange={(e) => setTransferState(prev => ({ ...prev, fromCondition: e.target.value }))}
+                >
+                  <option value="">Select condition</option>
+                  {conditions.map((item) => (
+                    <option key={item.condition} value={item.condition}>
+                      {conditionOptions.find(opt => opt.value === item.condition)?.label} ({item.quantity} available)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">To Condition</label>
+                <select
+                  className="w-full rounded-md border border-gray-300 p-2"
+                  value={transferState.toCondition}
+                  onChange={(e) => setTransferState(prev => ({ ...prev, toCondition: e.target.value }))}
+                >
+                  <option value="">Select condition</option>
+                  {conditionOptions
+                    .filter(opt => opt.value !== transferState.fromCondition)
+                    .map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Quantity to Transfer</label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  value={transferState.quantity}
+                  onChange={(e) => setTransferState(prev => ({ 
+                    ...prev, 
+                    quantity: Math.max(1, parseInt(e.target.value) || 0)
+                  }))}
+                  min="1"
+                  max={conditions.find(c => c.condition === transferState.fromCondition)?.quantity || 0}
+                  className="w-24"
+                />
+                <Button
+                  onClick={handleTransfer}
+                  disabled={!transferState.fromCondition || !transferState.toCondition || transferState.quantity <= 0}
+                >
+                  Transfer <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {remaining > 0 && (
         <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">

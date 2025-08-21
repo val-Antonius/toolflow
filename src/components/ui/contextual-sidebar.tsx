@@ -32,25 +32,79 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
   const [formData, setFormData] = useState<any>({});
   const [itemConditions, setItemConditions] = useState<Record<string, any>>({});
 
+  // Initialize form data when sidebar opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (type === 'extend') {
+        // Set default due date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dateStr = tomorrow.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+        setFormData({
+          newDueDate: dateStr,
+          reason: ''
+        });
+      } else if (type === 'return') {
+        // Reset item conditions
+        setItemConditions({});
+      }
+    }
+  }, [isOpen, type]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (type === 'return') {
+      // First check if conditions are set for all items
+      const missingConditions = borrowing?.items.some(item => 
+        !itemConditions[item.id] || itemConditions[item.id].length === 0
+      );
+
+      if (missingConditions) {
+        alert('Please set conditions for all items');
+        return;
+      }
+
+      // Then prepare items with their conditions
+      const items = borrowing?.items.map(item => {
+        const itemCondition = itemConditions[item.id][0]; // Get the first condition
+        return {
+          borrowingItemId: item.id,
+          returnCondition: itemCondition.condition,
+          notes: formData.notes
+        };
+      });
+
       onSubmit({
         borrowingId: borrowing?.id,
-        items: borrowing?.items.map(item => ({
-          ...item,
-          returnConditions: itemConditions[item.id] || []
-        })),
-        notes: formData.notes,
-        returnDate: new Date().toISOString()
+        items: items,
+        notes: formData.notes
       });
     } else if (type === 'extend') {
+      // Validate required fields
+      if (!formData.newDueDate || !formData.reason) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      // Validate new due date is in the future
+      const newDueDate = new Date(formData.newDueDate);
+      if (isNaN(newDueDate.getTime())) {
+        alert('Please enter a valid date');
+        return;
+      }
+
+      if (newDueDate <= new Date()) {
+        alert('New due date must be in the future');
+        return;
+      }
+
+      // Format date as ISO string
       onSubmit({
         borrowingId: borrowing?.id,
-        newDueDate: formData.newDueDate,
+        newDueDate: newDueDate.toISOString(),
         reason: formData.reason
       });
     }
@@ -152,11 +206,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   <Label htmlFor="newDueDate">New Due Date</Label>
                   <Input
                     id="newDueDate"
-                    type="date"
+                    type="datetime-local"
                     value={formData.newDueDate || ''}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, newDueDate: e.target.value }))}
+                    onChange={(e) => setFormData((prev: any) => ({ 
+                      ...prev, 
+                      newDueDate: e.target.value
+                    }))}
                     className="mt-1"
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toISOString().slice(0, 16)}
                     required
                   />
                 </div>
