@@ -24,6 +24,12 @@ import {
 } from 'lucide-react';
 
 // Types
+interface ToolUnit {
+  id: string;
+  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+  isAvailable: boolean;
+}
+
 interface Tool {
   id: string;
   name: string;
@@ -32,7 +38,6 @@ interface Tool {
     name: string;
     type: string;
   };
-  condition: string;
   totalQuantity: number;
   availableQuantity: number;
   hasActiveBorrowing: boolean;
@@ -41,6 +46,7 @@ interface Tool {
   supplier?: string;
   createdAt: string;
   updatedAt: string;
+  units?: ToolUnit[];
 }
 
 interface Material {
@@ -82,7 +88,13 @@ const fetchTools = async (searchQuery: string = ''): Promise<Tool[]> => {
     if (result.success) {
       return result.data.map((tool: any) => ({
         ...tool,
-        type: 'tool' as const
+        type: 'tool' as const,
+        // Ensure units are properly typed
+        units: tool.units?.map((unit: any) => ({
+          id: unit.id,
+          condition: unit.condition,
+          isAvailable: unit.isAvailable
+        }))
       }));
     }
     return [];
@@ -138,16 +150,52 @@ export default function Inventory() {
   const allItems = [...tools, ...materials];
   const selectedItemsData: SelectedItem[] = allItems
     .filter(item => selectedItems.includes(item.id))
-    .map(item => ({
-      id: item.id,
-      name: item.name,
-      type: item.type,
-      category: item.category.name,
-      hasActiveBorrowing: 'hasActiveBorrowing' in item ? item.hasActiveBorrowing : false,
-      available: item.type === 'tool' ? (item as Tool).availableQuantity : (item as Material).currentQuantity,
-      quantity: item.type === 'material' ? (item as Material).currentQuantity : undefined,
-      unit: item.type === 'material' ? (item as Material).unit : undefined
-    }));
+    .map(item => {
+      if (item.type === 'tool') {
+        const tool = item as Tool;
+        return {
+          id: tool.id,
+          name: tool.name,
+          type: tool.type,
+          category: tool.category.name,
+          categoryId: tool.category.id,
+          quantity: tool.totalQuantity,
+          totalQuantity: tool.totalQuantity,
+          availableQuantity: tool.availableQuantity,
+          units: tool.units || [],
+          available: tool.availableQuantity,
+          total: tool.totalQuantity,
+          supplier: tool.supplier,
+          location: tool.location,
+          hasActiveBorrowing: tool.hasActiveBorrowing || false,
+          borrowedQuantity: tool.borrowedQuantity || 0,
+          createdAt: tool.createdAt,
+          updatedAt: tool.updatedAt
+        };
+      } else {
+        const material = item as Material;
+        return {
+          id: material.id,
+          name: material.name,
+          type: material.type,
+          category: material.category.name,
+          categoryId: material.category.id,
+          quantity: material.currentQuantity,
+          currentQuantity: material.currentQuantity,
+          unit: material.unit,
+          threshold: material.thresholdQuantity,
+          thresholdQuantity: material.thresholdQuantity,
+          supplier: material.supplier,
+          location: material.location,
+          hasActiveBorrowing: false,
+          stockStatus: material.stockStatus,
+          isLowStock: material.isLowStock,
+          createdAt: material.createdAt,
+          updatedAt: material.updatedAt,
+          available: material.currentQuantity
+        };
+      }
+    });
 
   const allowedNames = ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'];
   const toolCategories = categories.filter((cat: any) => cat.type === 'TOOL' && allowedNames.includes(cat.name));
@@ -222,12 +270,29 @@ export default function Inventory() {
   };
 
   const handleEditClick = (item: any) => {
-    setEditItem(item);
+    console.log('Edit item clicked:', item);
+
+    // Ensure we have complete data for editing
+    let editItemData = item;
+
+    // If item comes from selectedItemsData, find the complete data from original arrays
+    if (selectedItems.includes(item.id)) {
+      const completeItem = allItems.find(originalItem => originalItem.id === item.id);
+      if (completeItem) {
+        editItemData = completeItem;
+      }
+    }
+
+    console.log('Edit item data:', editItemData);
+    setEditItem(editItemData);
     setSidebarType('edit');
     setSidebarOpen(true);
   };
 
   const handleProcessClick = () => {
+    console.log('Process button clicked');
+    console.log('Selected items data:', selectedItemsData);
+    console.log('Selected tools with units:', selectedItemsData.filter(item => item.type === 'tool'));
     setSidebarType('process');
     setSidebarOpen(true);
   };
@@ -523,7 +588,18 @@ export default function Inventory() {
               >
                 <X className="w-4 h-4" />
               </Button>
-              <Button size="sm" variant="outline" onClick={() => handleEditClick(selectedItemsData[0])} disabled={selectedItems.length > 1}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  // Get the complete item data from original arrays
+                  const completeItem = allItems.find(item => item.id === selectedItems[0]);
+                  if (completeItem) {
+                    handleEditClick(completeItem);
+                  }
+                }}
+                disabled={selectedItems.length !== 1}
+              >
                 <Edit className="w-4 h-4 mr-1" />
                 Edit
               </Button>
@@ -608,9 +684,63 @@ export default function Inventory() {
                         <td className="py-4 px-4 text-sm font-medium">{tool.name}</td>
                         <td className="py-4 px-4 text-sm capitalize">{tool.category.name}</td>
                         <td className="py-4 px-4">
-                          <Badge className={cn("text-xs", getConditionColor(tool.condition))}>
-                            {tool.condition}
-                          </Badge>
+                          <div className="flex flex-col space-y-2">
+                            {tool.units && tool.units.length > 0 ? (
+                              <>
+                                {/* Condition Progress Bar */}
+                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex shadow-inner">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-300"
+                                    style={{ width: `${(tool.units.filter(u => u.condition === 'EXCELLENT').length / tool.units.length) * 100}%` }}
+                                  />
+                                  <div
+                                    className="h-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-300"
+                                    style={{ width: `${(tool.units.filter(u => u.condition === 'GOOD').length / tool.units.length) * 100}%` }}
+                                  />
+                                  <div
+                                    className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 transition-all duration-300"
+                                    style={{ width: `${(tool.units.filter(u => u.condition === 'FAIR').length / tool.units.length) * 100}%` }}
+                                  />
+                                  <div
+                                    className="h-full bg-gradient-to-r from-red-400 to-red-500 transition-all duration-300"
+                                    style={{ width: `${(tool.units.filter(u => u.condition === 'POOR').length / tool.units.length) * 100}%` }}
+                                  />
+                                </div>
+
+                                {/* Condition Count Labels */}
+                                <div className="flex justify-between items-center text-xs">
+                                  <div className="flex items-center space-x-1" title="Excellent">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    <span className="font-medium text-green-700">
+                                      {tool.units.filter(u => u.condition === 'EXCELLENT').length}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1" title="Good">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                    <span className="font-medium text-blue-700">
+                                      {tool.units.filter(u => u.condition === 'GOOD').length}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1" title="Fair">
+                                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                    <span className="font-medium text-yellow-700">
+                                      {tool.units.filter(u => u.condition === 'FAIR').length}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1" title="Poor">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                                    <span className="font-medium text-red-700">
+                                      {tool.units.filter(u => u.condition === 'POOR').length}
+                                    </span>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-center py-2">
+                                <span className="text-xs text-gray-400 italic">No units data</span>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-4 text-sm">
                           <span className="font-medium">{tool.availableQuantity}</span>
@@ -653,50 +783,148 @@ export default function Inventory() {
                       </tr>
                       {isRowExpanded(tool.id) && (
                         <tr>
-                          <td colSpan={9} className="py-4 px-6 bg-gray-50/50">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Details</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Created: {new Date(tool.createdAt).toLocaleDateString()}<br />
-                                  Location: {tool.location || 'Not specified'}<br />
-                                  Supplier: {tool.supplier || 'Not specified'}<br />
-                                  Last Updated: {new Date(tool.updatedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Activity History</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {tool.hasActiveBorrowing ? (
-                                    <>
-                                      Currently borrowed: {tool.borrowedQuantity} units<br />
-                                      Available: {tool.availableQuantity} units<br />
-                                      Status: Active borrowing
-                                    </>
+                          <td colSpan={9} className="py-6 px-6 bg-gradient-to-r from-gray-50/80 to-blue-50/30 border-t border-gray-200">
+                            <div className="max-w-6xl mx-auto">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                                {/* Details Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-blue-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Details</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {new Date(tool.createdAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Location:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {tool.location || 'Not specified'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Supplier:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {tool.supplier || 'Not specified'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {new Date(tool.updatedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Activity History Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-green-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Activity History</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    {tool.hasActiveBorrowing ? (
+                                      <>
+                                        <div className="flex items-center justify-between py-1">
+                                          <span className="text-gray-600">Status:</span>
+                                          <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                            Active Borrowing
+                                          </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Borrowed:</span>
+                                          <span className="font-medium text-amber-600">
+                                            {tool.borrowedQuantity} units
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Available:</span>
+                                          <span className="font-medium text-green-600">
+                                            {tool.availableQuantity} units
+                                          </span>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center justify-between py-1">
+                                          <span className="text-gray-600">Status:</span>
+                                          <Badge className="bg-green-100 text-green-800 border-green-200">
+                                            Ready for Use
+                                          </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Available:</span>
+                                          <span className="font-medium text-green-600">
+                                            All {tool.availableQuantity} units
+                                          </span>
+                                        </div>
+                                        <div className="text-center py-2 text-gray-500 italic">
+                                          No active borrowings
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Condition Distribution Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-purple-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Condition Distribution</h4>
+                                  </div>
+
+                                  {tool.units && tool.units.length > 0 ? (
+                                    <div className="space-y-3">
+                                      {/* Condition Breakdown */}
+                                      <div className="space-y-2">
+                                        {[
+                                          { condition: 'EXCELLENT', label: 'Excellent', color: 'bg-green-500', textColor: 'text-green-700' },
+                                          { condition: 'GOOD', label: 'Good', color: 'bg-blue-500', textColor: 'text-blue-700' },
+                                          { condition: 'FAIR', label: 'Fair', color: 'bg-yellow-500', textColor: 'text-yellow-700' },
+                                          { condition: 'POOR', label: 'Poor', color: 'bg-red-500', textColor: 'text-red-700' }
+                                        ].map(({ condition, label, color, textColor }) => {
+                                          const count = tool.units.filter(u => u.condition === condition).length;
+                                          const percentage = (count / tool.units.length) * 100;
+                                          return (
+                                            <div key={condition} className="flex items-center justify-between">
+                                              <div className="flex items-center space-x-2">
+                                                <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                                                <span className="text-sm text-gray-600">{label}:</span>
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                <span className={`text-sm font-medium ${textColor}`}>
+                                                  {count}
+                                                </span>
+                                                <span className="text-xs text-gray-400">
+                                                  ({percentage.toFixed(0)}%)
+                                                </span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+
+                                      {/* Summary */}
+                                      <div className="border-t pt-2 mt-3 space-y-1">
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span className="text-gray-600">Total Quantity:</span>
+                                          <span className="font-semibold text-gray-800">{tool.totalQuantity}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                          <span className="text-gray-600">Available:</span>
+                                          <span className="font-semibold text-green-600">{tool.availableQuantity}</span>
+                                        </div>
+                                      </div>
+                                    </div>
                                   ) : (
-                                    <>
-                                      No active borrowings<br />
-                                      All units available<br />
-                                      Status: Ready for use
-                                    </>
+                                    <div className="text-center py-4 text-gray-500 italic">
+                                      No units data available
+                                    </div>
                                   )}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Condition Distribution</h4>
-                                <div className="text-sm space-y-1">
-                                  <div className="flex justify-between">
-                                    <span>Current Condition:</span>
-                                    <Badge className={cn("text-xs", getConditionColor(tool.condition))}>
-                                      {tool.condition}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Total Quantity:</span> <span>{tool.totalQuantity}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Available:</span> <span>{tool.availableQuantity}</span>
-                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -802,44 +1030,124 @@ export default function Inventory() {
                       </tr>
                       {isRowExpanded(material.id) && (
                         <tr>
-                          <td colSpan={10} className="py-4 px-6 bg-gray-50/50">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Details</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Created: {new Date(material.createdAt).toLocaleDateString()}<br />
-                                  Storage: {material.location || 'Not specified'}<br />
-                                  Supplier: {material.supplier || 'Not specified'}<br />
-                                  Last Updated: {new Date(material.updatedAt).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Consumption History</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Stock Status: {material.stockStatus}<br />
-                                  Low Stock Alert: {material.isLowStock ? 'Yes' : 'No'}<br />
-                                  Unit: {material.unit}
-                                </p>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-sm mb-2">Stock Status</h4>
-                                <div className="text-sm space-y-1">
-                                  <div className="flex justify-between">
-                                    <span>Current:</span> <span>{material.currentQuantity} {material.unit}</span>
+                          <td colSpan={10} className="py-6 px-6 bg-gradient-to-r from-gray-50/80 to-purple-50/30 border-t border-gray-200">
+                            <div className="max-w-6xl mx-auto">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                                {/* Details Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-blue-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Details</h4>
                                   </div>
-                                  <div className="flex justify-between">
-                                    <span>Threshold:</span> <span>{material.thresholdQuantity} {material.unit}</span>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Created:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {new Date(material.createdAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Storage:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {material.location || 'Not specified'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Supplier:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {material.supplier || 'Not specified'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Last Updated:</span>
+                                      <span className="font-medium text-gray-800">
+                                        {new Date(material.updatedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex justify-between">
-                                    <span>Status:</span>
-                                    <Badge className={cn(
-                                      material.stockStatus === 'out' ? "bg-red-100 text-red-800" :
-                                      material.stockStatus === 'low' ? "bg-yellow-100 text-yellow-800" :
-                                      "bg-green-100 text-green-800"
-                                    )}>
-                                      {material.stockStatus === 'out' ? 'Out of Stock' :
-                                       material.stockStatus === 'low' ? 'Low Stock' : 'In Stock'}
-                                    </Badge>
+                                </div>
+
+                                {/* Consumption History Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-purple-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Consumption History</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex items-center justify-between py-1">
+                                      <span className="text-gray-600">Stock Status:</span>
+                                      <Badge className={cn(
+                                        material.stockStatus === 'out' ? "bg-red-100 text-red-800 border-red-200" :
+                                        material.stockStatus === 'low' ? "bg-yellow-100 text-yellow-800 border-yellow-200" :
+                                        "bg-green-100 text-green-800 border-green-200"
+                                      )}>
+                                        {material.stockStatus === 'out' ? 'Out of Stock' :
+                                         material.stockStatus === 'low' ? 'Low Stock' : 'In Stock'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Low Stock Alert:</span>
+                                      <span className={`font-medium ${material.isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                                        {material.isLowStock ? 'Yes' : 'No'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-1">
+                                      <span className="text-gray-600">Unit:</span>
+                                      <span className="font-medium text-gray-800">{material.unit}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Stock Status Section */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-green-200">
+                                  <div className="flex items-center mb-3">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                                    <h4 className="font-semibold text-gray-800">Stock Status</h4>
+                                  </div>
+                                  <div className="space-y-3">
+                                    {/* Stock Progress Bar */}
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between text-xs text-gray-600">
+                                        <span>Current Stock</span>
+                                        <span>{((material.currentQuantity / (material.thresholdQuantity * 2)) * 100).toFixed(0)}%</span>
+                                      </div>
+                                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full transition-all duration-300 ${
+                                            material.stockStatus === 'out' ? 'bg-red-500' :
+                                            material.stockStatus === 'low' ? 'bg-yellow-500' :
+                                            'bg-green-500'
+                                          }`}
+                                          style={{
+                                            width: `${Math.min(100, (material.currentQuantity / (material.thresholdQuantity * 2)) * 100)}%`
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Stock Details */}
+                                    <div className="space-y-1 text-sm">
+                                      <div className="flex justify-between items-center py-1">
+                                        <span className="text-gray-600">Current:</span>
+                                        <span className="font-semibold text-gray-800">
+                                          {material.currentQuantity} {material.unit}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center py-1">
+                                        <span className="text-gray-600">Threshold:</span>
+                                        <span className="font-semibold text-yellow-600">
+                                          {material.thresholdQuantity} {material.unit}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center py-1">
+                                        <span className="text-gray-600">Remaining:</span>
+                                        <span className={`font-semibold ${
+                                          material.currentQuantity <= material.thresholdQuantity ? 'text-red-600' : 'text-green-600'
+                                        }`}>
+                                          {Math.max(0, material.currentQuantity - material.thresholdQuantity)} {material.unit}
+                                        </span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>

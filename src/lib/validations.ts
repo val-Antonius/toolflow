@@ -15,12 +15,20 @@ export const CreateCategorySchema = z.object({
 export const UpdateCategorySchema = CreateCategorySchema.partial()
 
 // Tool Schemas
+export const ToolUnitSchema = z.object({
+  condition: ToolConditionSchema,
+  notes: z.string().optional()
+})
+
+export const CreateToolUnitSchema = z.object({
+  condition: ToolConditionSchema.default('GOOD'),
+  notes: z.string().optional()
+})
+
 export const CreateToolShape = {
   name: z.string().min(1, 'Name is required').max(200, 'Name too long'),
   categoryId: z.string().min(1, 'Category is required'),
-  condition: ToolConditionSchema.default('GOOD'),
   totalQuantity: z.number().int().min(1, 'Total quantity must be at least 1'),
-  availableQuantity: z.number().int().min(0, 'Available quantity cannot be negative'),
   location: z.string().optional(),
   supplier: z.string().optional(),
   purchaseDate: z.string().datetime().optional(),
@@ -28,12 +36,18 @@ export const CreateToolShape = {
   notes: z.string().optional(),
 }
 
-export const CreateToolSchema = z.object(CreateToolShape).refine(data => data.availableQuantity <= data.totalQuantity, {
-  message: 'Available quantity cannot exceed total quantity',
-  path: ['availableQuantity'],
-})
+export const CreateToolSchema = z.object(CreateToolShape)
 
 export const UpdateToolSchema = z.object(CreateToolShape).partial()
+
+// Tool Units Bulk Update Schema
+export const BulkUpdateToolUnitsSchema = z.object({
+  units: z.array(z.object({
+    unitId: z.string(),
+    condition: ToolConditionSchema,
+    notes: z.string().optional()
+  }))
+})
 
 // Material Schemas
 export const CreateMaterialSchema = z.object({
@@ -69,16 +83,19 @@ export const CreateBorrowingSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     toolId: z.string().min(1, 'Tool ID is required'),
-    quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+    units: z.array(z.string()).min(1, 'At least one unit must be selected'),
+    notes: z.string().optional(),
   })).min(1, 'At least one item is required'),
 })
 
 export const ReturnBorrowingSchema = z.object({
-  borrowingId: z.string().min(1, 'Borrowing ID is required'),
   items: z.array(z.object({
     borrowingItemId: z.string().min(1, 'Borrowing item ID is required'),
-    returnCondition: ToolConditionSchema,
-    notes: z.string().optional(),
+    unitReturns: z.array(z.object({
+      borrowingItemUnitId: z.string().min(1, 'Borrowing item unit ID is required'),
+      returnCondition: ToolConditionSchema,
+      notes: z.string().optional(),
+    })).min(1, 'At least one unit return is required'),
   })).min(1, 'At least one item is required'),
   notes: z.string().optional(),
 })

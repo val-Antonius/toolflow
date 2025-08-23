@@ -42,7 +42,6 @@ interface BorrowingTransaction {
     tool: {
       id: string;
       name: string;
-      condition: string;
     };
   }>;
   totalItems: number;
@@ -589,34 +588,133 @@ export default function Activities() {
 
                           {expandedHistory.includes(transaction.id) && (
                             <tr>
-                              <td colSpan={6} className="py-4 px-6 bg-gray-50/50">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <h4 className="font-medium text-sm mb-2">Transaction Details</h4>
-                                    <div className="space-y-1 text-sm">
-                                      <p><strong>ID:</strong> {transaction.id}</p>
-                                      <p><strong>Date:</strong> {isBorrowing
-                                        ? new Date(transaction.returnDate || transaction.createdAt).toLocaleDateString()
-                                        : new Date(transaction.consumptionDate).toLocaleDateString()
-                                      }</p>
-                                      <p><strong>Type:</strong> {isBorrowing ? 'return' : 'consume'}</p>
-                                      <p><strong>Purpose:</strong> {transaction.purpose}</p>
-                                      {!isBorrowing && transaction.totalValue && (
-                                        <p><strong>Total Value:</strong> Rp {Number(transaction.totalValue).toLocaleString()}</p>
-                                      )}
+                              <td colSpan={6} className="py-6 px-6 bg-gradient-to-r from-gray-50/80 to-indigo-50/30 border-t border-gray-200">
+                                <div className="max-w-6xl mx-auto">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+                                    {/* Transaction Details Section */}
+                                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-indigo-200">
+                                      <div className="flex items-center mb-3">
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full mr-2 animate-pulse"></div>
+                                        <h4 className="font-semibold text-gray-800">Transaction Details</h4>
+                                      </div>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">ID:</span>
+                                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                                            {transaction.id.slice(0, 8)}...
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Date:</span>
+                                          <span className="font-medium text-gray-800">
+                                            {isBorrowing
+                                              ? new Date(transaction.returnDate || transaction.createdAt).toLocaleDateString()
+                                              : new Date(transaction.consumptionDate).toLocaleDateString()
+                                            }
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Type:</span>
+                                          <Badge className={cn(
+                                            isBorrowing ? "bg-blue-100 text-blue-800 border-blue-200" :
+                                            "bg-purple-100 text-purple-800 border-purple-200"
+                                          )}>
+                                            {isBorrowing ? 'Return' : 'Consume'}
+                                          </Badge>
+                                        </div>
+                                        <div className="py-1">
+                                          <span className="text-gray-600 block mb-1">Purpose:</span>
+                                          <p className="text-gray-800 text-xs leading-relaxed">
+                                            {transaction.purpose}
+                                          </p>
+                                        </div>
+                                        {!isBorrowing && transaction.totalValue && (
+                                          <div className="flex justify-between items-center py-1">
+                                            <span className="text-gray-600">Total Value:</span>
+                                            <span className="font-semibold text-green-600">
+                                              Rp {Number(transaction.totalValue).toLocaleString()}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium text-sm mb-2">Items Information</h4>
-                                    <div className="space-y-1 text-sm">
-                                      {isBorrowing
-                                        ? transaction.borrowingItems.map(item => (
-                                            <p key={item.id}><strong>{item.tool.name}:</strong> {item.quantity} units</p>
-                                          ))
-                                        : transaction.consumptionItems.map(item => (
-                                            <p key={item.id}><strong>{item.material.name}:</strong> {item.quantity} {item.material.unit}</p>
-                                          ))
-                                      }
+
+                                    {/* Items Section */}
+                                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-green-200">
+                                      <div className="flex items-center mb-3">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                                        <h4 className="font-semibold text-gray-800">
+                                          Items ({isBorrowing ? transaction.borrowingItems?.length : transaction.consumptionItems?.length})
+                                        </h4>
+                                      </div>
+                                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                                        {isBorrowing
+                                          ? transaction.borrowingItems?.map(item => (
+                                              <div key={item.id} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-sm">
+                                                <span className="font-medium text-gray-800 truncate flex-1 mr-2">
+                                                  {item.tool.name}
+                                                </span>
+                                                <span className="text-gray-600 font-mono text-xs">
+                                                  {item.quantity} units
+                                                </span>
+                                              </div>
+                                            ))
+                                          : transaction.consumptionItems?.map(item => (
+                                              <div key={item.id} className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded text-sm">
+                                                <span className="font-medium text-gray-800 truncate flex-1 mr-2">
+                                                  {item.material.name}
+                                                </span>
+                                                <span className="text-gray-600 font-mono text-xs">
+                                                  {item.quantity} {item.material.unit}
+                                                </span>
+                                              </div>
+                                            ))
+                                        }
+                                      </div>
+                                    </div>
+
+                                    {/* Status & Summary Section */}
+                                    <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 hover:border-orange-200">
+                                      <div className="flex items-center mb-3">
+                                        <div className="w-2 h-2 bg-orange-500 rounded-full mr-2 animate-pulse"></div>
+                                        <h4 className="font-semibold text-gray-800">Summary</h4>
+                                      </div>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Status:</span>
+                                          <Badge className="bg-green-100 text-green-800 border-green-200">
+                                            Completed
+                                          </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Total Items:</span>
+                                          <span className="font-medium text-gray-800">
+                                            {isBorrowing ? transaction.borrowingItems?.length : transaction.consumptionItems?.length}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-1">
+                                          <span className="text-gray-600">Person:</span>
+                                          <span className="font-medium text-gray-800">
+                                            {isBorrowing ? transaction.borrowerName : transaction.consumerName}
+                                          </span>
+                                        </div>
+                                        {isBorrowing && transaction.returnDate && (
+                                          <div className="flex justify-between items-center py-1">
+                                            <span className="text-gray-600">Returned:</span>
+                                            <span className="font-medium text-green-600">
+                                              {new Date(transaction.returnDate).toLocaleDateString()}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {!isBorrowing && transaction.projectName && (
+                                          <div className="py-1">
+                                            <span className="text-gray-600 block mb-1">Project:</span>
+                                            <p className="text-gray-800 text-xs bg-gray-50 p-2 rounded">
+                                              {transaction.projectName}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { CreateBorrowingSchema } from '@/lib/validations'
 import {
   successResponse,
@@ -11,6 +12,18 @@ import {
   getPaginationParams,
   checkToolAvailability
 } from '@/lib/api-utils'
+
+// Type for tool with units
+type ToolWithUnits = {
+  id: string;
+  name: string;
+  units: Array<{
+    id: string;
+    unitNumber: number;
+    condition: string;
+    isAvailable: boolean;
+  }>;
+};
 // GET /api/borrowings - Get all borrowing transactions
 export async function GET(request: NextRequest) {
   try {
@@ -22,11 +35,9 @@ export async function GET(request: NextRequest) {
     const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
 
     // Build filters
-    const where: any = {
+    const where: Prisma.BorrowingTransactionWhereInput = {
       ...buildSearchFilter(search, ['purpose', 'borrowerName']),
-    }
-    if (status && ['ACTIVE', 'OVERDUE', 'COMPLETED', 'CANCELLED'].includes(status)) {
-      where.status = status
+      ...(status && { status: status as any })
     }
 
     // Auto-update overdue status
@@ -49,7 +60,14 @@ export async function GET(request: NextRequest) {
           borrowingItems: {
             include: {
               tool: {
-                select: { id: true, name: true, condition: true }
+                select: { id: true, name: true }
+              },
+              borrowedUnits: {
+                include: {
+                  toolUnit: {
+                    select: { id: true, unitNumber: true, condition: true }
+                  }
+                }
               }
             }
           }
@@ -97,19 +115,7 @@ export async function POST(request: NextRequest) {
 
     const { borrowerName, dueDate, purpose, notes, items } = validation.data
 
-    // Check tool availability for all items
-    const toolChecks = await Promise.all(
-      items.map(async (item) => {
-        try {
-          const tool = await checkToolAvailability(item.toolId, item.quantity)
-          return { ...item, tool }
-        } catch (error) {
-          throw new Error(`${error}`)
-        }
-      })
-    )
-
-    // Create borrowing transaction
+    // Create borrowing transaction in a transaction
     const borrowing = await prisma.$transaction(async (tx) => {
       const newBorrowing = await tx.borrowingTransaction.create({
         data: {
@@ -121,59 +127,107 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      const borrowingItems = await Promise.all(
-        toolChecks.map(async (item) => {
-          const borrowingItem = await tx.borrowingItem.create({
-            data: {
-              borrowingTransactionId: newBorrowing.id,
-              toolId: item.toolId,
-              quantity: item.quantity,
-              originalCondition: item.tool.condition || 'GOOD',
-            },
-          })
-
-          await tx.tool.update({
-            where: { id: item.toolId },
-            data: {
-              availableQuantity: {
-                decrement: item.quantity
+      // Process each tool and its units
+      const borrowingItems = [];
+      
+      for (const item of items) {
+        // Get the tool and its units
+        const toolWithUnits = await tx.tool.findUnique({
+          where: { id: item.toolId },
+          include: {
+            units: {
+              where: {
+                id: { in: item.units },
+                isAvailable: true
               }
-            },
-          })
+            }
+          }
+        }) as ToolWithUnits;
 
-          return borrowingItem
-        })
-      )
+        if (!toolWithUnits) {
+          throw new Error(`Tool ${item.toolId} not found`);
+        }
 
-      return { ...newBorrowing, borrowingItems }
+        if (toolWithUnits.units.length !== item.units.length) {
+          throw new Error(`Some units of tool ${toolWithUnits.name} are not available`);
+        }
+
+        // Create borrowing item
+        const borrowingItem = await tx.borrowingItem.create({
+          data: {
+            borrowingTransactionId: newBorrowing.id,
+            toolId: item.toolId,
+            quantity: item.units.length,
+            originalCondition: 'GOOD',
+            notes: item.notes
+          }
+        });
+
+        borrowingItems.push(borrowingItem);
+
+        // Create borrowing item units and update unit availability
+        for (const unit of toolWithUnits.units) {
+          await tx.borrowingItemUnit.create({
+            data: {
+              borrowingItemId: borrowingItem.id,
+              toolUnitId: unit.id,
+              condition: unit.condition as any
+            }
+          });
+
+          // Update unit availability
+          await tx.toolUnit.update({
+            where: { id: unit.id },
+            data: { isAvailable: false }
+          });
+        }
+
+        // Update tool's available quantity
+        await tx.tool.update({
+          where: { id: toolWithUnits.id },
+          data: {
+            availableQuantity: {
+              decrement: item.units.length
+            }
+          }
+        });
+      }
+
+      return { ...newBorrowing, borrowingItems };
     })
 
-    // Log activity
-    await logActivity(
-      'BORROWING_TRANSACTION',
-      borrowing.id,
-      'BORROW',
-      borrowerName,
-      undefined,
-      borrowing,
-      { itemCount: items.length, totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0) }
-    )
-
-    // Fetch complete borrowing data for response
-    const completeBorrowing = await prisma.borrowingTransaction.findUnique({
+    const result = await prisma.borrowingTransaction.findUnique({
       where: { id: borrowing.id },
       include: {
         borrowingItems: {
           include: {
-            tool: {
-              select: { id: true, name: true, condition: true }
+            tool: true,
+            borrowedUnits: {
+              include: {
+                toolUnit: true
+              }
             }
           }
         }
-      },
-    })
+      }
+    });
 
-    return successResponse(completeBorrowing, 'Borrowing transaction created successfully')
+    if (!result) {
+      throw new Error('Failed to create borrowing transaction')
+    }
+
+    // Log activity
+    await logActivity(
+      'BORROWING_TRANSACTION',
+      result.id,
+      'BORROW',
+      borrowerName,
+      undefined,
+      result,
+      { itemCount: items.length, totalQuantity: items.reduce((sum, item) => sum + item.units.length, 0) }
+    )
+
+    return successResponse(result, 'Borrowing transaction created successfully')
   } catch (error) {
     console.error('Error creating borrowing:', error)
     return handleDatabaseError(error)

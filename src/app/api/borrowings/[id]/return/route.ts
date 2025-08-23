@@ -29,7 +29,12 @@ export async function POST(
       include: {
         borrowingItems: {
           include: {
-            tool: true
+            tool: true,
+            borrowedUnits: {
+              include: {
+                toolUnit: true
+              }
+            }
           }
         }
       }
@@ -78,42 +83,59 @@ export async function POST(
 
         if (!borrowingItem) continue
 
+        // Process unit returns
+        for (const unitReturn of returnItem.unitReturns) {
+          const borrowingItemUnit = borrowingItem.borrowedUnits.find(
+            (unit: any) => unit.id === unitReturn.borrowingItemUnitId
+          );
+
+          if (!borrowingItemUnit) continue;
+
+          // Update borrowing item unit with return condition
+          await tx.borrowingItemUnit.update({
+            where: { id: unitReturn.borrowingItemUnitId },
+            data: {
+              returnCondition: unitReturn.returnCondition,
+              notes: unitReturn.notes
+            }
+          });
+
+          // Update tool unit condition and availability
+          await tx.toolUnit.update({
+            where: { id: borrowingItemUnit.toolUnitId },
+            data: {
+              condition: unitReturn.returnCondition as any,
+              isAvailable: true
+            }
+          });
+        }
+
         // Update borrowing item with return info
         const updatedItem = await tx.borrowingItem.update({
           where: { id: returnItem.borrowingItemId },
           data: {
             returnDate: new Date(),
-            returnCondition: returnItem.returnCondition,
-            notes: returnItem.notes,
+            returnCondition: returnItem.unitReturns[0]?.returnCondition || 'GOOD', // Use first unit's condition as overall
           },
           include: {
-            tool: true
+            tool: true,
+            borrowedUnits: {
+              include: {
+                toolUnit: true
+              }
+            }
           }
         })
 
-        // Update tool availability
+        // Update tool availability (increment by number of returned units)
         await tx.tool.update({
           where: { id: borrowingItem.toolId },
           data: {
             availableQuantity: {
-              increment: borrowingItem.quantity
+              increment: returnItem.unitReturns.length
             }
           },
         })
-
-        // Update tool condition if it has deteriorated
-        if (returnItem.returnCondition !== borrowingItem.originalCondition) {
-          const conditionPriority = { 'EXCELLENT': 4, 'GOOD': 3, 'FAIR': 2, 'POOR': 1 }
-          const currentPriority = conditionPriority[borrowingItem.tool.condition as keyof typeof conditionPriority]
-          const returnPriority = conditionPriority[returnItem.returnCondition as keyof typeof conditionPriority]
-
-          if (returnPriority < currentPriority) {
-            await tx.tool.update({
-              where: { id: borrowingItem.toolId },
-              data: { condition: returnItem.returnCondition },
-            })
-          }
-        }
 
         returnedItems.push(updatedItem)
       }

@@ -11,12 +11,12 @@ datasource db {
 }
 
 model Category {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  type        ItemType  // TOOL or MATERIAL
+  type        ItemType // TOOL or MATERIAL
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   tools     Tool[]
@@ -27,35 +27,73 @@ model Category {
 }
 
 model Tool {
-  id                String        @id @default(cuid())
+  id                String    @id @default(cuid())
   name              String
   categoryId        String
-  condition         ToolCondition @default(GOOD)
-  totalQuantity     Int           @default(1)
-  availableQuantity Int           @default(1)
+  totalQuantity     Int       @default(1)
+  availableQuantity Int       @default(1)
   location          String?
   supplier          String?
   purchaseDate      DateTime?
-  purchasePrice     Decimal?      @db.Decimal(10, 2)
-  notes             String?       @db.Text
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  purchasePrice     Decimal?  @db.Decimal(10, 2)
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relations
-  category      Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   borrowingItems BorrowingItem[]
+  units          ToolUnit[]
 
-  @@map("tools")
   @@index([categoryId])
   @@index([name])
+  @@map("tools")
+}
+
+model ToolUnit {
+  id          String        @id @default(cuid())
+  toolId      String
+  unitNumber  Int
+  condition   ToolCondition @default(GOOD)
+  isAvailable Boolean       @default(true)
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  tool       Tool                @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  borrowings BorrowingItemUnit[]
+
+  @@unique([toolId, unitNumber])
+  @@index([toolId])
+  @@map("tool_units")
+}
+
+model BorrowingItemUnit {
+  id              String         @id @default(cuid())
+  borrowingItemId String
+  toolUnitId      String
+  condition       ToolCondition
+  returnCondition ToolCondition?
+  notes           String?        @db.Text
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  borrowingItem BorrowingItem @relation(fields: [borrowingItemId], references: [id], onDelete: Cascade)
+  toolUnit      ToolUnit      @relation(fields: [toolUnitId], references: [id], onDelete: Cascade)
+
+  @@index([borrowingItemId])
+  @@index([toolUnitId])
+  @@map("borrowing_item_units")
 }
 
 model Material {
-  id                String  @id @default(cuid())
+  id                String   @id @default(cuid())
   name              String
   categoryId        String
-  currentQuantity   Decimal @db.Decimal(10, 3)
-  thresholdQuantity Decimal @db.Decimal(10, 3)
+  currentQuantity   Decimal  @db.Decimal(10, 3)
+  thresholdQuantity Decimal  @db.Decimal(10, 3)
   unit              String
   location          String?
   supplier          String?
@@ -65,79 +103,79 @@ model Material {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  category         Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   consumptionItems ConsumptionItem[]
 
-  @@map("materials")
   @@index([categoryId])
   @@index([name])
+  @@map("materials")
 }
 
-
 model BorrowingTransaction {
-  id           String                    @id @default(cuid())
+  id           String                     @id @default(cuid())
   borrowerName String
-  borrowDate   DateTime                  @default(now())
+  borrowDate   DateTime                   @default(now())
   dueDate      DateTime
   returnDate   DateTime?
   purpose      String
   status       BorrowingTransactionStatus @default(ACTIVE)
-  notes        String?                   @db.Text
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
+  notes        String?                    @db.Text
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
 
   // Relations
   borrowingItems BorrowingItem[]
 
-  @@map("borrowing_transactions")
   @@index([status])
   @@index([dueDate])
+  @@map("borrowing_transactions")
 }
 
 model BorrowingItem {
-  id                     String        @id @default(cuid())
+  id                     String         @id @default(cuid())
   borrowingTransactionId String
   toolId                 String
   quantity               Int
   originalCondition      ToolCondition
   returnCondition        ToolCondition?
   returnDate             DateTime?
-  notes                  String?       @db.Text
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  notes                  String?        @db.Text
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   // Relations
   borrowingTransaction BorrowingTransaction @relation(fields: [borrowingTransactionId], references: [id], onDelete: Cascade)
   tool                 Tool                 @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  borrowedUnits        BorrowingItemUnit[]
 
-  @@map("borrowing_items")
   @@index([borrowingTransactionId])
   @@index([toolId])
+  @@map("borrowing_items")
 }
 
 model ConsumptionTransaction {
-  id               String  @id @default(cuid())
-  consumerName     String
-  consumptionDate  DateTime @default(now())
-  purpose          String
-  projectName      String?
-  totalValue       Decimal? @db.Decimal(12, 2)
-  notes            String?  @db.Text
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  consumerName    String
+  consumptionDate DateTime @default(now())
+  purpose         String
+  projectName     String?
+  totalValue      Decimal? @db.Decimal(12, 2)
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   consumptionItems ConsumptionItem[]
 
-  @@map("consumption_transactions")
   @@index([consumptionDate])
+  @@map("consumption_transactions")
 }
 
 model ConsumptionItem {
-  id                       String  @id @default(cuid())
+  id                       String   @id @default(cuid())
   consumptionTransactionId String
   materialId               String
-  quantity                 Decimal @db.Decimal(10, 3)
+  quantity                 Decimal  @db.Decimal(10, 3)
   unitPrice                Decimal? @db.Decimal(10, 2)
   totalValue               Decimal? @db.Decimal(12, 2)
   notes                    String?  @db.Text
@@ -148,13 +186,13 @@ model ConsumptionItem {
   consumptionTransaction ConsumptionTransaction @relation(fields: [consumptionTransactionId], references: [id], onDelete: Cascade)
   material               Material               @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
-  @@map("consumption_items")
   @@index([consumptionTransactionId])
   @@index([materialId])
+  @@map("consumption_items")
 }
 
 model ActivityLog {
-  id         String           @id @default(cuid())
+  id         String             @id @default(cuid())
   entityType ActivityEntityType
   entityId   String
   action     ActivityAction
@@ -162,11 +200,11 @@ model ActivityLog {
   oldValues  Json?
   newValues  Json?
   metadata   Json?
-  createdAt  DateTime         @default(now())
+  createdAt  DateTime           @default(now())
 
-  @@map("activity_logs")
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@map("activity_logs")
 }
 
 // Enums

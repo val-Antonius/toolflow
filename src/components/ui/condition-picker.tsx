@@ -4,25 +4,34 @@ import { Input } from './input';
 import { Badge } from './badge';
 import { cn } from '@/lib/utils';
 import { Plus, Minus, ArrowRight } from 'lucide-react';
-import { Select } from './select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 
-interface ConditionItem {
+interface ToolUnit {
+  id: string;
   condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  quantity: number;
+  isAvailable: boolean;
+}
+
+interface Unit {
+  id: string;
+  unitNumber: number;
+  condition: string;
+  isAvailable: boolean;
+  notes?: string;
 }
 
 interface ConditionPickerProps {
   itemName: string;
-  totalQuantity: number;
-  originalCondition: string;
-  onConditionsChange: (conditions: ConditionItem[]) => void;
+  units: Unit[];
+  onUnitConditionsChange: (updates: Array<{ unitId: string; condition: string; notes?: string }>) => void;
   className?: string;
 }
 
-interface TransferState {
-  fromCondition: string;
-  toCondition: string;
-  quantity: number;
+interface UnitUpdate {
+  unitId: string;
+  currentCondition: string;
+  newCondition: string;
+  notes?: string;
 }
 
 const conditionOptions = [
@@ -34,20 +43,12 @@ const conditionOptions = [
 
 export function ConditionPicker({ 
   itemName, 
-  totalQuantity, 
-  originalCondition, 
-  onConditionsChange, 
+  units, 
+  onUnitConditionsChange, 
   className 
 }: ConditionPickerProps) {
-  const [conditions, setConditions] = useState<ConditionItem[]>([
-    { condition: originalCondition as any, quantity: totalQuantity }
-  ]);
-  const [transferState, setTransferState] = useState<TransferState>({
-    fromCondition: '',
-    toCondition: '',
-    quantity: 1
-  });
-  const [showTransfer, setShowTransfer] = useState(false);
+  const [unitUpdates, setUnitUpdates] = useState<Record<string, { condition: string; notes?: string }>>({});
+  const [showNotes, setShowNotes] = useState<Record<string, boolean>>({});
 
   const updateQuantity = (index: number, newQuantity: number) => {
     const updatedConditions = [...conditions];
@@ -126,9 +127,88 @@ export function ConditionPicker({
       <div className="flex items-center justify-between">
         <h4 className="font-medium text-sm">{itemName}</h4>
         <div className="text-sm text-muted-foreground">
-          Total: {totalQuantity} | Assigned: {totalAssigned}
-          {remaining > 0 && <span className="text-yellow-600 ml-2">Remaining: {remaining}</span>}
+          Total Units: {units.length} | Updated: {Object.keys(unitUpdates).length}
         </div>
+      </div>
+      
+      <div className="space-y-3">
+        {units.map((unit) => (
+          <div key={unit.id} className="p-3 rounded-lg border bg-white/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Badge className={cn("text-xs", getConditionColor(unit.condition))}>
+                  Unit {unit.unitNumber}
+                </Badge>
+                <span className="text-sm font-medium">
+                  Current: {unit.condition}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowNotes({ ...showNotes, [unit.id]: !showNotes[unit.id] })}
+              >
+                {showNotes[unit.id] ? 'Hide Notes' : 'Add Notes'}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Select
+                value={unitUpdates[unit.id]?.condition || unit.condition}
+                onValueChange={(value) => {
+                  setUnitUpdates(prev => ({
+                    ...prev,
+                    [unit.id]: { ...prev[unit.id], condition: value }
+                  }));
+                  onUnitConditionsChange(
+                    Object.entries({
+                      ...unitUpdates,
+                      [unit.id]: { ...unitUpdates[unit.id], condition: value }
+                    }).map(([unitId, update]) => ({
+                      unitId,
+                      condition: update.condition,
+                      notes: update.notes
+                    }))
+                  );
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {conditionOptions.map(cond => (
+                    <SelectItem key={cond.value} value={cond.value}>
+                      {cond.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {showNotes[unit.id] && (
+                <Input
+                  placeholder="Add notes about condition change..."
+                  value={unitUpdates[unit.id]?.notes || ''}
+                  onChange={(e) => {
+                    setUnitUpdates(prev => ({
+                      ...prev,
+                      [unit.id]: { ...prev[unit.id], notes: e.target.value }
+                    }));
+                    onUnitConditionsChange(
+                      Object.entries({
+                        ...unitUpdates,
+                        [unit.id]: { ...unitUpdates[unit.id], notes: e.target.value }
+                      }).map(([unitId, update]) => ({
+                        unitId,
+                        condition: update.condition,
+                        notes: update.notes
+                      }))
+                    );
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Current Conditions */}

@@ -7,11 +7,22 @@ import { ConditionPicker } from './condition-picker';
 import { cn } from '@/lib/utils';
 import { X, Calendar, Package, User } from 'lucide-react';
 
+interface ToolUnit {
+  id: string;
+  unitNumber: number;
+  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+  isAvailable: boolean;
+  notes?: string;
+}
+
 interface BorrowedItem {
   id: string;
   name: string;
-  quantity: number;
-  originalCondition: string;
+  units: ToolUnit[];
+  type: 'tool' | 'material';
+  quantity?: number;
+  available?: number;
+  originalCondition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
 }
 
 interface SidebarFormProps {
@@ -29,8 +40,15 @@ interface SidebarFormProps {
 }
 
 export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }: SidebarFormProps) {
-  const [formData, setFormData] = useState<any>({});
-  const [itemConditions, setItemConditions] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<{
+    newDueDate?: string;
+    reason?: string;
+    notes?: string;
+  }>({});
+  const [itemConditions, setItemConditions] = useState<Record<string, Array<{
+    condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+    notes?: string;
+  }>>>({});
 
   // Initialize form data when sidebar opens
   React.useEffect(() => {
@@ -58,7 +76,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
     
     if (type === 'return') {
       // First check if conditions are set for all items
-      const missingConditions = borrowing?.items.some(item => 
+      const missingConditions = borrowing?.items.some((item: BorrowedItem) => 
         !itemConditions[item.id] || itemConditions[item.id].length === 0
       );
 
@@ -68,7 +86,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       }
 
       // Then prepare items with their conditions
-      const items = borrowing?.items.map(item => {
+      const items = borrowing?.items.map((item: BorrowedItem) => {
         const itemCondition = itemConditions[item.id][0]; // Get the first condition
         return {
           borrowingItemId: item.id,
@@ -171,14 +189,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   </p>
                 </div>
 
-                {borrowing.items.map((item) => (
+                {borrowing.items.map((item: BorrowedItem) => (
                   <ConditionPicker
                     key={item.id}
                     itemName={item.name}
-                    totalQuantity={item.quantity}
-                    originalCondition={item.originalCondition}
-                    onConditionsChange={(conditions) => {
-                      setItemConditions((prev: Record<string, any>) => ({
+                    units={item.units}
+                    currentCondition={item.originalCondition}
+                    onConditionsChange={(conditions: Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>) => {
+                      setItemConditions((prev) => ({
                         ...prev,
                         [item.id]: conditions
                       }));

@@ -33,9 +33,14 @@ export async function GET(request: NextRequest) {
       where.categoryId = categoryId
     }
 
-    if (condition && ['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].includes(condition)) {
-      where.condition = condition
-    }
+    // Note: condition filter now needs to be handled through units
+    // if (condition && ['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].includes(condition)) {
+    //   where.units = {
+    //     some: {
+    //       condition: condition as any
+    //     }
+    //   }
+    // }
 
     if (availability === 'available') {
       where.availableQuantity = { gt: 0 }
@@ -57,6 +62,15 @@ export async function GET(request: NextRequest) {
         include: {
           category: {
             select: { name: true, type: true }
+          },
+          units: {
+            select: {
+              id: true,
+              unitNumber: true,
+              condition: true,
+              isAvailable: true,
+              notes: true
+            }
           },
           _count: {
             select: {
@@ -123,23 +137,57 @@ export async function POST(request: NextRequest) {
       return errorResponse('Category must be of type TOOL', 400)
     }
 
-    // Create tool
-    const tool = await prisma.tool.create({
-      data: {
-        name: data.name,
-        categoryId: data.categoryId,
-        condition: data.condition,
-        totalQuantity: data.totalQuantity,
-        availableQuantity: data.availableQuantity,
-        location: data.location,
-        supplier: data.supplier,
-        purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-        purchasePrice: data.purchasePrice,
-        notes: data.notes,
-      },
+    // Create tool with units
+    const tool = await prisma.$transaction(async (tx) => {
+      const createdTool = await tx.tool.create({
+        data: {
+          name: data.name,
+          categoryId: data.categoryId,
+          totalQuantity: data.totalQuantity,
+          availableQuantity: data.totalQuantity, // Initially all units are available
+          location: data.location,
+          supplier: data.supplier,
+          purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
+          purchasePrice: data.purchasePrice,
+          notes: data.notes,
+        }
+      });
+
+      // Create units for the tool
+      const units = [];
+      for (let i = 1; i <= data.totalQuantity; i++) {
+        const unit = await tx.toolUnit.create({
+          data: {
+            toolId: createdTool.id,
+            unitNumber: i,
+            condition: 'GOOD', // Default condition
+            isAvailable: true
+          }
+        });
+        units.push(unit);
+      }
+
+      return {
+        ...createdTool,
+        units
+      };
+    });
+
+    // Fetch the complete tool with relations
+    const completeToolData = await prisma.tool.findUnique({
+      where: { id: tool.id },
       include: {
         category: {
           select: { name: true, type: true }
+        },
+        units: {
+          select: {
+            id: true,
+            unitNumber: true,
+            condition: true,
+            isAvailable: true,
+            notes: true
+          }
         },
         _count: {
           select: {
@@ -156,12 +204,12 @@ export async function POST(request: NextRequest) {
     })
 
     // Log activity
-    await logActivity('TOOL', tool.id, 'CREATE', undefined, undefined, tool)
+    await logActivity('TOOL', tool.id, 'CREATE', undefined, undefined, completeToolData)
 
     return successResponse({
-      ...tool,
-      hasActiveBorrowing: tool._count.borrowingItems > 0,
-      borrowedQuantity: tool.totalQuantity - tool.availableQuantity,
+      ...completeToolData,
+      hasActiveBorrowing: completeToolData?._count.borrowingItems > 0,
+      borrowedQuantity: completeToolData?.totalQuantity - completeToolData?.availableQuantity,
     }, 'Tool created successfully')
   } catch (error) {
     console.error('Error creating tool:', error)

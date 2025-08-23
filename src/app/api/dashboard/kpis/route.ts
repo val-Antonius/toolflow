@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
     // Parallel queries for better performance
     const [
-      totalTools,
+      tools,
       totalMaterials,
       activeBorrowings,
       overdueBorrowings,
@@ -24,8 +24,17 @@ export async function GET(request: NextRequest) {
       previousPeriodConsumptions,
       previousPeriodReturns,
     ] = await Promise.all([
-      // Current totals
-      prisma.tool.count(),
+      // Current totals with unit conditions
+      prisma.tool.findMany({
+        include: {
+          units: {
+            select: {
+              condition: true,
+              isAvailable: true
+            }
+          }
+        }
+      }),
       prisma.material.count(),
       prisma.borrowingTransaction.count({
         where: { status: 'ACTIVE' }
@@ -111,16 +120,33 @@ export async function GET(request: NextRequest) {
     const lowStockCount = Number(lowStockMaterials[0]?.count || 0)
     const toolsInUseCount = Number(toolsInUse[0]?.count || 0)
 
+    // Calculate tool unit statistics
+    const toolStats = tools.reduce((acc, tool) => {
+      tool.units.forEach(unit => {
+        if (unit.condition === "POOR") acc.poorCondition++;
+        if (!unit.isAvailable) acc.inUse++;
+      });
+      return acc;
+    }, { total: tools.reduce((sum, t) => sum + t.units.length, 0), poorCondition: 0, inUse: 0 });
+
     const kpis = [
       {
-        title: "Total Tools",
-        value: totalTools.toLocaleString(),
-        trend: {
-          value: Math.abs(borrowingTrend),
-          isPositive: borrowingTrend >= 0
-        },
-        icon: "wrench",
-        description: `${toolsInUseCount} tools currently in use`
+        title: "Total Tool Units",
+        value: toolStats.total,
+        trend: 0, // No trend for total inventory
+        unit: "units"
+      },
+      {
+        title: "Units In Use",
+        value: toolStats.inUse,
+        trend: 0,
+        unit: "units"
+      },
+      {
+        title: "Poor Condition Units",
+        value: toolStats.poorCondition,
+        trend: 0,
+        unit: "units"
       },
       {
         title: "Total Materials",
