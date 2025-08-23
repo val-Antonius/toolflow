@@ -78,7 +78,7 @@ export async function POST(
         borrowingItems: {
           include: {
             tool: {
-              select: { id: true, name: true, condition: true }
+              select: { id: true, name: true }
             }
           }
         }

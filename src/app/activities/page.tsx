@@ -81,8 +81,16 @@ const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]>
     const params = new URLSearchParams();
     if (status) params.append('status', status);
 
+    console.log('Fetching borrowings with params:', params.toString());
     const response = await fetch(`/api/borrowings?${params.toString()}`);
     const result = await response.json();
+
+    console.log('Borrowings API response:', result);
+    if (result.data && result.data.length > 0) {
+      console.log('Sample borrowing structure:', result.data[0]);
+      console.log('Sample borrowing items:', result.data[0]?.borrowingItems?.[0]);
+      console.log('Sample borrowed units:', result.data[0]?.borrowingItems?.[0]?.borrowedUnits?.[0]);
+    }
 
     if (result.success) {
       return result.data;
@@ -160,27 +168,98 @@ export default function Activities() {
 
   const handleFormSubmit = async (formData: any) => {
     try {
+      console.log('Form submission started:', { sidebarType, formData });
+
       let response, result;
       if (sidebarType === 'return') {
+        const borrowingId = selectedBorrowing?.id;
+        console.log('Processing return for borrowing:', borrowingId);
+
+        if (!borrowingId) {
+          throw new Error('No borrowing selected for return');
+        }
+
         // Proses pengembalian
-        response = await fetch(`/api/borrowings/${formData.borrowingId}/return`, {
+        response = await fetch(`/api/borrowings/${borrowingId}/return`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
-        result = await response.json();
+
+        console.log('Return response status:', response.status);
+        console.log('Return response headers:', response.headers);
+
+        // Check if response is ok
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Return API error response:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process return'}`);
+        }
+
+        // Try to parse JSON
+        const responseText = await response.text();
+        console.log('Return response text:', responseText);
+
+        if (!responseText.trim()) {
+          // Empty response - assume success
+          result = { success: true, message: 'Return processed successfully' };
+        } else {
+          try {
+            result = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            throw new Error(`Invalid JSON response: ${responseText}`);
+          }
+        }
+
         if (!result.success) throw new Error(result.message || 'Failed to process return');
+
       } else if (sidebarType === 'extend') {
+        const borrowingId = selectedBorrowing?.id;
+        console.log('Processing extension for borrowing:', borrowingId);
+
+        if (!borrowingId) {
+          throw new Error('No borrowing selected for extension');
+        }
+
         // Proses perpanjangan
-        response = await fetch(`/api/borrowings/${formData.borrowingId}/extend`, {
+        response = await fetch(`/api/borrowings/${borrowingId}/extend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
-        result = await response.json();
+
+        console.log('Extend response status:', response.status);
+
+        // Check if response is ok
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Extend API error response:', errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process extension'}`);
+        }
+
+        // Try to parse JSON
+        const responseText = await response.text();
+        console.log('Extend response text:', responseText);
+
+        if (!responseText.trim()) {
+          // Empty response - assume success
+          result = { success: true, message: 'Extension processed successfully' };
+        } else {
+          try {
+            result = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            throw new Error(`Invalid JSON response: ${responseText}`);
+          }
+        }
+
         if (!result.success) throw new Error(result.message || 'Failed to process extension');
       }
+
+      console.log('Operation successful:', result);
       setSidebarOpen(false);
+
       // Refresh data
       setLoading(true);
       const [borrowingsData, consumptionsData] = await Promise.all([
@@ -190,9 +269,13 @@ export default function Activities() {
       setBorrowings(borrowingsData);
       setConsumptions(consumptionsData);
       setLoading(false);
+
+      // Show success message
+      alert(result.message || 'Operation completed successfully');
+
     } catch (error: any) {
-      alert(error.message || 'Operation failed');
       console.error('Activities CRUD error:', error);
+      alert(error.message || 'Operation failed');
     }
   };
 
@@ -380,16 +463,18 @@ export default function Activities() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleReturnClick(borrowing)}
-                            className="hover-lift"
+                            className="hover-lift bg-green-50 hover:bg-green-100 text-green-700 border-green-200 hover:border-green-300 transition-all duration-200"
                           >
+                            <Package className="w-3 h-3 mr-1" />
                             Return
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleExtendClick(borrowing)}
-                            className="hover-lift"
+                            className="hover-lift bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 hover:border-blue-300 transition-all duration-200"
                           >
+                            <Calendar className="w-3 h-3 mr-1" />
                             Extend
                           </Button>
                         </div>
@@ -750,7 +835,14 @@ export default function Activities() {
             id: item.id,
             name: item.tool?.name || 'Unknown Tool',
             quantity: item.quantity || 0,
-            originalCondition: item.originalCondition || 'UNKNOWN'
+            originalCondition: item.originalCondition || 'UNKNOWN',
+            units: item.borrowedUnits?.map((unit: any) => ({
+              id: unit.id, // This should be borrowingItemUnitId
+              unitNumber: unit.toolUnit?.unitNumber || 1,
+              condition: unit.toolUnit?.condition || 'UNKNOWN',
+              isAvailable: false, // These are borrowed units
+              notes: unit.notes || ''
+            })) || []
           })).filter(Boolean) || [],
           dueDate: selectedBorrowing.dueDate || new Date().toISOString(),
           purpose: selectedBorrowing.purpose || 'No purpose specified'

@@ -171,19 +171,45 @@ export async function logActivity(
   metadata?: any
 ) {
   try {
+    // Safe JSON serialization helper
+    const safeSerialize = (obj: any) => {
+      if (!obj) return null;
+      try {
+        // Remove circular references and non-serializable data
+        const cleaned = JSON.parse(JSON.stringify(obj, (_key, value) => {
+          // Skip functions, undefined, and symbols
+          if (typeof value === 'function' || typeof value === 'undefined' || typeof value === 'symbol') {
+            return undefined;
+          }
+          // Skip circular references (basic check)
+          if (typeof value === 'object' && value !== null) {
+            if (value.constructor && value.constructor.name === 'Date') {
+              return value.toISOString();
+            }
+          }
+          return value;
+        }));
+        return cleaned;
+      } catch (error) {
+        console.error('Error serializing object for activity log:', error);
+        return { error: 'Serialization failed', type: typeof obj };
+      }
+    };
+
     await prisma.activityLog.create({
       data: {
         entityType,
         entityId,
         action,
-        actorName,
-        oldValues: oldValues ? JSON.parse(JSON.stringify(oldValues)) : null,
-        newValues: newValues ? JSON.parse(JSON.stringify(newValues)) : null,
-        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
+        actorName: actorName || 'System',
+        oldValues: safeSerialize(oldValues),
+        newValues: safeSerialize(newValues),
+        metadata: safeSerialize(metadata),
       },
     })
   } catch (error) {
     console.error('Failed to log activity:', error)
+    // Don't throw error to prevent breaking the main operation
   }
 }
 
@@ -212,7 +238,7 @@ export function buildSortOrder(sortBy?: string, sortOrder: 'asc' | 'desc' = 'des
 export async function checkToolAvailability(toolId: string, requestedQuantity: number) {
   const tool = await prisma.tool.findUnique({
     where: { id: toolId },
-    select: { availableQuantity: true, totalQuantity: true, name: true, condition: true },
+    select: { availableQuantity: true, totalQuantity: true, name: true },
   })
 
   if (!tool) {

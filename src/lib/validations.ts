@@ -101,7 +101,6 @@ export const ReturnBorrowingSchema = z.object({
 })
 
 export const ExtendBorrowingSchema = z.object({
-  borrowingId: z.string().min(1, 'Borrowing ID is required'),
   newDueDate: z.string().datetime('Invalid due date'),
   reason: z.string().min(1, 'Reason is required').max(500, 'Reason too long'),
 })

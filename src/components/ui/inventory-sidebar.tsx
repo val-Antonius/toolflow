@@ -145,6 +145,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   });
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, string[]>>({});
+  const [borrowQuantities, setBorrowQuantities] = useState<Record<string, number>>({});
+  const [selectionMode, setSelectionMode] = useState<Record<string, 'manual' | 'quantity'>>({});
 
   // Check if selected items contain both tools and materials
   const hasTools = selectedItems.some(item => item.type === 'tool');
@@ -209,10 +211,24 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   useEffect(() => {
     if (selectedItems.length > 0) {
       const initialQuantities: Record<string, number> = {};
+      const initialSelectionModes: Record<string, 'manual' | 'quantity'> = {};
+      const initialBorrowQuantities: Record<string, number> = {};
+
       selectedItems.forEach(item => {
         initialQuantities[item.id] = item.type === 'tool' ? 1 : 0.001;
+
+        // Initialize selection mode for tools
+        if (item.type === 'tool') {
+          const availableUnits = item.units?.filter(u => u.isAvailable) || [];
+          // Use smart mode for tools with many units, manual for few units
+          initialSelectionModes[item.id] = availableUnits.length > 10 ? 'quantity' : 'manual';
+          initialBorrowQuantities[item.id] = Math.min(1, availableUnits.length);
+        }
       });
+
       setItemQuantities(initialQuantities);
+      setSelectionMode(initialSelectionModes);
+      setBorrowQuantities(initialBorrowQuantities);
     }
   }, [selectedItems]);
 
@@ -233,6 +249,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         notes: ''
       });
       setItemQuantities({});
+      setBorrowQuantities({});
+      setSelectionMode({});
     }
   }, [isOpen]);
 
@@ -290,6 +308,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         break;
       case 'process':
         if (processType === 'borrow' && (hasMixed || hasTools)) {
+          console.log('Processing borrow transaction...');
           // Validate required fields for borrowing
           if (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose) {
             throw new Error('Please fill all required fields for borrowing');
@@ -310,6 +329,21 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             throw new Error(`Please select at least one unit for: ${toolNames}`);
           }
 
+          // Validate borrow quantities for smart mode
+          const toolsWithInvalidQuantities = selectedItems
+            .filter(item => item.type === 'tool')
+            .filter(tool => {
+              const mode = selectionMode[tool.id];
+              const borrowQty = borrowQuantities[tool.id];
+              const selectedCount = selectedUnits[tool.id]?.length || 0;
+              return mode === 'quantity' && borrowQty > 0 && selectedCount !== borrowQty;
+            });
+
+          if (toolsWithInvalidQuantities.length > 0) {
+            const toolNames = toolsWithInvalidQuantities.map(t => t.name).join(', ');
+            throw new Error(`Quantity mismatch for: ${toolNames}. Please check your selection.`);
+          }
+
           const borrowPayload = {
             type: 'borrow',
             borrowerName: borrowForm.borrowerName,
@@ -325,19 +359,32 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
               }))
           };
           onSubmit(borrowPayload);
-        } else {
+        } else if (processType === 'consume' && (hasMixed || hasMaterials)) {
+          console.log('Processing consume transaction...');
           // Validate required fields for consuming
           if (!consumeForm.consumerName || !consumeForm.purpose) {
             throw new Error('Please fill all required fields for consumption');
           }
+
+          // Enhanced material quantity validation
+          const materialsWithZeroQuantity = selectedItems
+            .filter(item => item.type === 'material')
+            .filter(material => !itemQuantities[material.id] || itemQuantities[material.id] <= 0);
+
+          if (materialsWithZeroQuantity.length > 0) {
+            const materialNames = materialsWithZeroQuantity.map(m => m.name).join(', ');
+            throw new Error(`Please specify consumption quantity for: ${materialNames}`);
+          }
+
           // Validate material quantities
           validateMaterialQuantities();
+
           const consumePayload = {
             type: 'consume',
             consumerName: consumeForm.consumerName,
             purpose: consumeForm.purpose,
-            projectName: consumeForm.projectName || undefined, // Make undefined if empty
-            notes: consumeForm.notes || undefined, // Make undefined if empty
+            projectName: consumeForm.projectName || undefined,
+            notes: consumeForm.notes || undefined,
             items: selectedItems
               .filter(item => item.type === 'material')
               .map(material => ({
@@ -346,7 +393,10 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
               }))
           };
           onSubmit(consumePayload);
-}
+        } else if (hasMixed) {
+          // Handle mixed process - this shouldn't happen with current UI but adding for safety
+          throw new Error('Mixed process requires selecting either borrow or consume tab first');
+        }
         break;
       case 'delete':
         onSubmit({ items: selectedItems });
@@ -385,6 +435,73 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const removeNewItem = (index: number) => {
     if (newItems.length > 1) {
       setNewItems(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  // Smart unit selection functions
+  const selectUnitsByQuantity = (toolId: string, quantity: number, availableUnits: any[], preferredCondition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' = 'EXCELLENT') => {
+    // Sort units by condition preference (excellent first, then good, etc.)
+    const conditionPriority = { 'EXCELLENT': 4, 'GOOD': 3, 'FAIR': 2, 'POOR': 1 };
+    const sortedUnits = [...availableUnits].sort((a, b) => {
+      const aPriority = conditionPriority[a.condition as keyof typeof conditionPriority] || 0;
+      const bPriority = conditionPriority[b.condition as keyof typeof conditionPriority] || 0;
+      return bPriority - aPriority; // Descending order (best condition first)
+    });
+
+    // Select the requested quantity of units
+    const selectedUnitIds = sortedUnits.slice(0, quantity).map(unit => unit.id);
+
+    setSelectedUnits(prev => ({
+      ...prev,
+      [toolId]: selectedUnitIds
+    }));
+  };
+
+  const selectUnitsByCondition = (toolId: string, condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', availableUnits: any[]) => {
+    const unitsWithCondition = availableUnits.filter(unit => unit.condition === condition);
+    const selectedUnitIds = unitsWithCondition.map(unit => unit.id);
+
+    setSelectedUnits(prev => ({
+      ...prev,
+      [toolId]: selectedUnitIds
+    }));
+  };
+
+  const toggleSelectionMode = (toolId: string, mode: 'manual' | 'quantity') => {
+    setSelectionMode(prev => ({
+      ...prev,
+      [toolId]: mode
+    }));
+
+    // Clear selection when switching modes
+    setSelectedUnits(prev => ({
+      ...prev,
+      [toolId]: []
+    }));
+
+    // Reset quantity when switching to manual
+    if (mode === 'manual') {
+      setBorrowQuantities(prev => ({
+        ...prev,
+        [toolId]: 0
+      }));
+    }
+  };
+
+  const updateBorrowQuantity = (toolId: string, quantity: number, availableUnits: any[]) => {
+    setBorrowQuantities(prev => ({
+      ...prev,
+      [toolId]: quantity
+    }));
+
+    // Auto-select units based on quantity
+    if (quantity > 0) {
+      selectUnitsByQuantity(toolId, quantity, availableUnits);
+    } else {
+      setSelectedUnits(prev => ({
+        ...prev,
+        [toolId]: []
+      }));
     }
   };
 
@@ -699,30 +816,143 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             )}
 
             {item.type === 'material' && (
-              <>
-                <div>
-                  <Label>Unit</Label>
-                  <Select value={item.unit} onValueChange={(value) => updateNewItem(index, 'unit', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select unit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units.map((unit) => (
-                        <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="col-span-2">
+                <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <h5 className="font-medium text-purple-900">Material Configuration</h5>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Unit of Measurement</Label>
+                      <Select value={item.unit} onValueChange={(value) => updateNewItem(index, 'unit', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {units.map((unit) => (
+                            <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Low Stock Threshold</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          type="number"
+                          value={item.threshold || 10}
+                          onChange={(e) => updateNewItem(index, 'threshold', parseInt(e.target.value) || 10)}
+                          min="1"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            // Smart threshold suggestion based on quantity
+                            const suggestedThreshold = Math.max(1, Math.floor(item.quantity * 0.1));
+                            updateNewItem(index, 'threshold', suggestedThreshold);
+                          }}
+                          className="px-2"
+                          title="Set to 10% of quantity"
+                        >
+                          Auto
+                        </Button>
+                      </div>
+                      <p className="text-xs text-purple-600 mt-1">
+                        Suggested: {Math.max(1, Math.floor(item.quantity * 0.1))} ({Math.floor(item.quantity * 0.1 / item.quantity * 100)}% of quantity)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Smart Unit Suggestions based on category */}
+                  <div className="space-y-2">
+                    <Label className="text-sm text-purple-800">Smart Unit Suggestions:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {(() => {
+                        // Get category-specific suggestions
+                        const categoryName = materialCategories.find(cat => cat.id === item.category)?.name?.toLowerCase() || '';
+                        let suggestions = [
+                          { unit: 'pieces', label: 'Pieces', icon: '📦', category: 'default' },
+                          { unit: 'kg', label: 'Kilograms', icon: '⚖️', category: 'weight' },
+                          { unit: 'meter', label: 'Meters', icon: '📏', category: 'length' },
+                          { unit: 'liters', label: 'Liters', icon: '🪣', category: 'volume' },
+                          { unit: 'boxes', label: 'Boxes', icon: '📦', category: 'container' }
+                        ];
+
+                        // Smart suggestions based on category
+                        if (categoryName.includes('liquid') || categoryName.includes('chemical')) {
+                          suggestions = [
+                            { unit: 'liters', label: 'Liters', icon: '🪣', category: 'volume' },
+                            { unit: 'kg', label: 'Kilograms', icon: '⚖️', category: 'weight' },
+                            ...suggestions.filter(s => !['liters', 'kg'].includes(s.unit))
+                          ];
+                        } else if (categoryName.includes('cable') || categoryName.includes('wire')) {
+                          suggestions = [
+                            { unit: 'meter', label: 'Meters', icon: '📏', category: 'length' },
+                            { unit: 'pieces', label: 'Pieces', icon: '📦', category: 'count' },
+                            ...suggestions.filter(s => !['meter', 'pieces'].includes(s.unit))
+                          ];
+                        } else if (categoryName.includes('powder') || categoryName.includes('cement')) {
+                          suggestions = [
+                            { unit: 'kg', label: 'Kilograms', icon: '⚖️', category: 'weight' },
+                            { unit: 'boxes', label: 'Boxes', icon: '📦', category: 'container' },
+                            ...suggestions.filter(s => !['kg', 'boxes'].includes(s.unit))
+                          ];
+                        }
+
+                        return suggestions.slice(0, 5).map((unitSuggestion) => (
+                          <Button
+                            key={unitSuggestion.unit}
+                            type="button"
+                            size="sm"
+                            variant={item.unit === unitSuggestion.unit ? "default" : "outline"}
+                            onClick={() => updateNewItem(index, 'unit', unitSuggestion.unit)}
+                            className="text-xs h-7 px-2"
+                            title={`Recommended for ${unitSuggestion.category} materials`}
+                          >
+                            {unitSuggestion.icon} {unitSuggestion.label}
+                          </Button>
+                        ));
+                      })()}
+                    </div>
+                    <p className="text-xs text-purple-600">
+                      💡 Suggestions are based on your selected category
+                    </p>
+                  </div>
+
+                  {/* Quantity vs Threshold Visualization */}
+                  {item.quantity > 0 && item.threshold && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-purple-800">Stock Level Preview:</Label>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-purple-700">
+                          <span>Low Stock Alert</span>
+                          <span>Current Stock</span>
+                        </div>
+                        <div className="w-full h-3 bg-purple-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-red-400 rounded-full"
+                            style={{ width: `${Math.min(100, (item.threshold / item.quantity) * 100)}%` }}
+                          />
+                          <div
+                            className="h-full bg-green-400 rounded-full -mt-3"
+                            style={{
+                              width: `${Math.max(0, 100 - (item.threshold / item.quantity) * 100)}%`,
+                              marginLeft: `${Math.min(100, (item.threshold / item.quantity) * 100)}%`
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-purple-600">
+                          <span>≤ {item.threshold} {item.unit}</span>
+                          <span>{item.quantity} {item.unit}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <Label>Low Stock Threshold</Label>
-                  <Input
-                    type="number"
-                    value={item.threshold || 10}
-                    onChange={(e) => updateNewItem(index, 'threshold', parseInt(e.target.value) || 10)}
-                    min="1"
-                  />
-                </div>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -878,140 +1108,312 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         />
       </div>
 
-      <div className="space-y-3">
-        <Label>Tools to Borrow</Label>
+      <div className="space-y-4">
+        <Label className="text-lg font-semibold">Tools to Borrow</Label>
         {items.map((item) => {
           const availableUnits = item.units?.filter(u => u.isAvailable) || [];
           const selectedCount = selectedUnits[item.id]?.length || 0;
+          const currentMode = selectionMode[item.id] || 'quantity';
+          const borrowQuantity = borrowQuantities[item.id] || 0;
+
+          // Group units by condition for display
+          const unitsByCondition = availableUnits.reduce((acc, unit) => {
+            if (!acc[unit.condition]) acc[unit.condition] = [];
+            acc[unit.condition].push(unit);
+            return acc;
+          }, {} as Record<string, any[]>);
 
           return (
-            <div key={item.id} className="p-4 border rounded-lg bg-white shadow-sm">
-              <div className="space-y-3">
+            <div key={item.id} className="p-5 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="space-y-4">
                 {/* Tool Header */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">{item.name}</p>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <span>Available: {availableUnits.length} units</span>
-                      <span>Selected: {selectedCount} units</span>
+                    <p className="font-semibold text-gray-900 text-lg">{item.name}</p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                      <span className="flex items-center">
+                        <Package className="w-4 h-4 mr-1" />
+                        Available: {availableUnits.length} units
+                      </span>
+                      <span className="flex items-center">
+                        <User className="w-4 h-4 mr-1" />
+                        Selected: {selectedCount} units
+                      </span>
                     </div>
                   </div>
-                  <Badge variant={selectedCount > 0 ? "default" : "secondary"}>
-                    {selectedCount > 0 ? `${selectedCount} selected` : 'None selected'}
-                  </Badge>
+                  <div className="text-right">
+                    <Badge variant={selectedCount > 0 ? "default" : "secondary"} className="mb-2">
+                      {selectedCount > 0 ? `${selectedCount} selected` : 'None selected'}
+                    </Badge>
+                    {selectedCount > 0 && (
+                      <div className="text-xs text-gray-500">
+                        {Math.round((selectedCount / availableUnits.length) * 100)}% of available
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Unit Selection */}
-                {availableUnits.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-gray-700">Select Units:</Label>
-                      <div className="flex space-x-2">
+                {/* Selection Mode Toggle */}
+                <div className="bg-gray-50 rounded-lg p-3 border">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-medium text-gray-700">Selection Mode:</Label>
+                    <div className="flex bg-white rounded-lg p-1 border">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectionMode(item.id, 'quantity')}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded transition-all",
+                          currentMode === 'quantity'
+                            ? "bg-blue-500 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-800"
+                        )}
+                      >
+                        Smart Select
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectionMode(item.id, 'manual')}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded transition-all",
+                          currentMode === 'manual'
+                            ? "bg-blue-500 text-white shadow-sm"
+                            : "text-gray-600 hover:text-gray-800"
+                        )}
+                      >
+                        Manual Select
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Smart Selection Mode */}
+                  {currentMode === 'quantity' && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-gray-600 mb-1 block">Quantity to Borrow</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={availableUnits.length}
+                            value={borrowQuantity}
+                            onChange={(e) => updateBorrowQuantity(item.id, parseInt(e.target.value) || 0, availableUnits)}
+                            className="h-8 text-sm"
+                            placeholder="Enter quantity"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-600 mb-1 block">Prefer Condition</Label>
+                          <Select
+                            value="EXCELLENT"
+                            onValueChange={(condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') => {
+                              if (borrowQuantity > 0) {
+                                selectUnitsByQuantity(item.id, borrowQuantity, availableUnits, condition);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="EXCELLENT">Excellent First</SelectItem>
+                              <SelectItem value="GOOD">Good First</SelectItem>
+                              <SelectItem value="FAIR">Fair First</SelectItem>
+                              <SelectItem value="POOR">Poor First</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Quick Selection Buttons */}
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(unitsByCondition).map(([condition, units]) => (
+                          <Button
+                            key={condition}
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => selectUnitsByCondition(item.id, condition as any, availableUnits)}
+                            className="text-xs h-7 px-2"
+                          >
+                            All {condition} ({units.length})
+                          </Button>
+                        ))}
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            // Select all available units
-                            setSelectedUnits(prev => ({
-                              ...prev,
-                              [item.id]: availableUnits.map(u => u.id)
-                            }));
-                          }}
-                          className="text-xs h-6 px-2"
+                          onClick={() => setSelectedUnits(prev => ({ ...prev, [item.id]: [] }))}
+                          className="text-xs h-7 px-2 text-red-600 hover:text-red-700"
                         >
-                          Select All
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            // Clear selection
-                            setSelectedUnits(prev => ({
-                              ...prev,
-                              [item.id]: []
-                            }));
-                          }}
-                          className="text-xs h-6 px-2"
-                        >
-                          Clear
+                          Clear All
                         </Button>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                      {availableUnits.map((unit) => (
-                        <div
-                          key={unit.id}
-                          className={cn(
-                            "flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all",
-                            selectedUnits[item.id]?.includes(unit.id)
-                              ? "bg-blue-50 border-blue-200 shadow-sm"
-                              : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                          )}
-                          onClick={() => {
-                            setSelectedUnits(prev => ({
-                              ...prev,
-                              [item.id]: prev[item.id]?.includes(unit.id)
-                                ? prev[item.id].filter(id => id !== unit.id)
-                                : [...(prev[item.id] || []), unit.id]
-                            }));
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            id={`unit-${unit.id}`}
-                            checked={selectedUnits[item.id]?.includes(unit.id) || false}
-                            onChange={() => {}} // Handled by div onClick
-                            className="h-4 w-4 text-blue-600 rounded"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor={`unit-${unit.id}`} className="text-sm font-medium text-gray-900 cursor-pointer">
-                                Unit #{unit.unitNumber}
-                              </Label>
-                              <Badge
-                                className={cn(
-                                  "text-xs",
-                                  unit.condition === 'EXCELLENT' ? "bg-green-100 text-green-800" :
-                                  unit.condition === 'GOOD' ? "bg-blue-100 text-blue-800" :
-                                  unit.condition === 'FAIR' ? "bg-yellow-100 text-yellow-800" :
-                                  "bg-red-100 text-red-800"
-                                )}
-                              >
-                                {unit.condition}
-                              </Badge>
-                            </div>
-                            {unit.notes && (
-                              <p className="text-xs text-gray-500 mt-1 truncate">
-                                {unit.notes}
-                              </p>
+                      {/* Selection Preview */}
+                      {selectedCount > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="text-sm text-blue-800 font-medium mb-2">
+                            Selected Units Preview ({selectedCount} units):
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {availableUnits
+                              .filter(unit => selectedUnits[item.id]?.includes(unit.id))
+                              .slice(0, 10) // Show first 10
+                              .map(unit => (
+                                <Badge
+                                  key={unit.id}
+                                  className={cn(
+                                    "text-xs",
+                                    unit.condition === 'EXCELLENT' ? "bg-green-100 text-green-800" :
+                                    unit.condition === 'GOOD' ? "bg-blue-100 text-blue-800" :
+                                    unit.condition === 'FAIR' ? "bg-yellow-100 text-yellow-800" :
+                                    "bg-red-100 text-red-800"
+                                  )}
+                                >
+                                  #{unit.unitNumber}
+                                </Badge>
+                              ))}
+                            {selectedCount > 10 && (
+                              <span className="text-xs text-blue-600">+{selectedCount - 10} more</span>
                             )}
                           </div>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
+                  )}
+
+                  {/* Manual Selection Mode */}
+                  {currentMode === 'manual' && availableUnits.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">Manual Unit Selection:</Label>
+                        <div className="flex space-x-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedUnits(prev => ({
+                                ...prev,
+                                [item.id]: availableUnits.map(u => u.id)
+                              }));
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedUnits(prev => ({
+                                ...prev,
+                                [item.id]: []
+                              }));
+                            }}
+                            className="text-xs h-6 px-2"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-lg p-2 bg-white">
+                        {availableUnits.map((unit) => (
+                          <div
+                            key={unit.id}
+                            className={cn(
+                              "flex items-center space-x-2 p-2 border rounded cursor-pointer transition-all text-sm",
+                              selectedUnits[item.id]?.includes(unit.id)
+                                ? "bg-blue-50 border-blue-200 shadow-sm"
+                                : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                            )}
+                            onClick={() => {
+                              setSelectedUnits(prev => ({
+                                ...prev,
+                                [item.id]: prev[item.id]?.includes(unit.id)
+                                  ? prev[item.id].filter(id => id !== unit.id)
+                                  : [...(prev[item.id] || []), unit.id]
+                              }));
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              id={`unit-${unit.id}`}
+                              checked={selectedUnits[item.id]?.includes(unit.id) || false}
+                              onChange={() => {}} // Handled by div onClick
+                              className="h-3 w-3 text-blue-600 rounded"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor={`unit-${unit.id}`} className="text-xs font-medium text-gray-900 cursor-pointer">
+                                  #{unit.unitNumber}
+                                </Label>
+                                <Badge
+                                  className={cn(
+                                    "text-xs px-1 py-0",
+                                    unit.condition === 'EXCELLENT' ? "bg-green-100 text-green-700" :
+                                    unit.condition === 'GOOD' ? "bg-blue-100 text-blue-700" :
+                                    unit.condition === 'FAIR' ? "bg-yellow-100 text-yellow-700" :
+                                    "bg-red-100 text-red-700"
+                                  )}
+                                >
+                                  {unit.condition.charAt(0)}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* No Units Available */}
+                {availableUnits.length === 0 && (
+                  <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                     <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No units available for borrowing</p>
+                    <p className="text-sm font-medium">No units available for borrowing</p>
+                    <p className="text-xs text-gray-400 mt-1">All units may be currently borrowed</p>
                   </div>
                 )}
 
-                {/* Selection Summary */}
+                {/* Enhanced Selection Summary */}
                 {selectedCount > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-blue-700 font-medium">
-                        {selectedCount} unit{selectedCount > 1 ? 's' : ''} selected for borrowing
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-blue-800 font-semibold text-sm">
+                        ✓ {selectedCount} unit{selectedCount > 1 ? 's' : ''} selected for borrowing
                       </span>
-                      <span className="text-blue-600">
-                        {availableUnits.filter(u => selectedUnits[item.id]?.includes(u.id))
-                          .map(u => `#${u.unitNumber}`)
-                          .join(', ')}
-                      </span>
+                      <Badge className="bg-blue-100 text-blue-800">
+                        {Math.round((selectedCount / availableUnits.length) * 100)}% selected
+                      </Badge>
+                    </div>
+
+                    {/* Condition breakdown */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {Object.entries(
+                        availableUnits
+                          .filter(u => selectedUnits[item.id]?.includes(u.id))
+                          .reduce((acc, unit) => {
+                            acc[unit.condition] = (acc[unit.condition] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>)
+                      ).map(([condition, count]) => (
+                        <Badge
+                          key={condition}
+                          className={cn(
+                            "text-xs",
+                            condition === 'EXCELLENT' ? "bg-green-100 text-green-700" :
+                            condition === 'GOOD' ? "bg-blue-100 text-blue-700" :
+                            condition === 'FAIR' ? "bg-yellow-100 text-yellow-700" :
+                            "bg-red-100 text-red-700"
+                          )}
+                        >
+                          {count} {condition}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1092,48 +1494,168 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         />
       </div>
 
-      <div className="space-y-3">
-        <Label>Materials to Consume</Label>
-        {items.map((item) => (
-          <div key={item.id} className="p-3 border rounded-lg bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">{item.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  Available: {item.quantity || item.currentQuantity || item.available || 0} {item.unit}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor={`consume-quantity-${item.id}`}>Quantity:</Label>
-                <Input
-                  id={`consume-quantity-${item.id}`}
-                  name={`consume-quantity-${item.id}`}
-                  type="number"
-                  value={itemQuantities[item.id] || 0.001}
-                  onChange={(e) => {
-                    console.log('Consume quantity onChange triggered');
-                    console.log('Current value:', e.target.value);
-                    console.log('Current itemQuantities:', itemQuantities);
-                    const value = parseFloat(e.target.value) || 0.001;
-                    console.log('Calculated value:', value);
-                    const maxQuantity = item.quantity || item.currentQuantity || item.available || 0;
-                    setItemQuantities(prev => ({
-                      ...prev,
-                      [item.id]: Number(Math.max(0.001, Math.min(value, maxQuantity)).toFixed(3))
-                    }));
-                  }}
-                  onFocus={(e) => e.target.select()}
-                  min="0.001"
-                  max={item.quantity || item.currentQuantity || item.available || 0}
-                  step="0.001"
-                  className="w-20"
-                  required
-                />
-                <span className="text-sm text-muted-foreground">{item.unit}</span>
+      <div className="space-y-4">
+        <Label className="text-lg font-semibold">Materials to Consume</Label>
+        {items.map((item) => {
+          const availableQty = item.quantity || item.currentQuantity || item.available || 0;
+          const currentQty = itemQuantities[item.id] || 0.001;
+          const percentageUsed = (currentQty / availableQty) * 100;
+
+          return (
+            <div key={item.id} className="p-4 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200">
+              <div className="space-y-3">
+                {/* Material Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900 text-lg">{item.name}</p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                      <span className="flex items-center">
+                        <Package className="w-4 h-4 mr-1" />
+                        Available: {availableQty} {item.unit}
+                      </span>
+                      <span className="flex items-center">
+                        <AlertTriangle className="w-4 h-4 mr-1" />
+                        Consuming: {currentQty} {item.unit}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant={percentageUsed > 50 ? "destructive" : percentageUsed > 25 ? "secondary" : "default"}>
+                      {percentageUsed.toFixed(1)}% of stock
+                    </Badge>
+                    {percentageUsed > 75 && (
+                      <div className="text-xs text-red-600 mt-1">⚠️ High consumption</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quantity Input Section */}
+                <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-medium text-purple-800">Consumption Quantity:</Label>
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id={`consume-quantity-${item.id}`}
+                        name={`consume-quantity-${item.id}`}
+                        type="number"
+                        value={currentQty}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0.001;
+                          setItemQuantities(prev => ({
+                            ...prev,
+                            [item.id]: Number(Math.max(0.001, Math.min(value, availableQty)).toFixed(3))
+                          }));
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        min="0.001"
+                        max={availableQty}
+                        step="0.001"
+                        className="w-24 h-8 text-sm"
+                        required
+                      />
+                      <span className="text-sm text-purple-700 font-medium">{item.unit}</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-purple-700">Quick Presets:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: '10%', value: availableQty * 0.1, icon: '🔹' },
+                        { label: '25%', value: availableQty * 0.25, icon: '🔸' },
+                        { label: '50%', value: availableQty * 0.5, icon: '🔶' },
+                        { label: '75%', value: availableQty * 0.75, icon: '🔺' },
+                        { label: 'All', value: availableQty, icon: '🔴' }
+                      ].map((preset) => (
+                        <Button
+                          key={preset.label}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setItemQuantities(prev => ({
+                              ...prev,
+                              [item.id]: Number(Math.max(0.001, preset.value).toFixed(3))
+                            }));
+                          }}
+                          className="text-xs h-7 px-2"
+                          disabled={preset.value > availableQty}
+                        >
+                          {preset.icon} {preset.label}
+                          <span className="ml-1 text-xs opacity-75">
+                            ({preset.value.toFixed(1)})
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Amount Shortcuts */}
+                  <div className="space-y-2 mt-3">
+                    <Label className="text-xs text-purple-700">Common Amounts:</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 5, 10, 25, 50, 100].filter(amount => amount <= availableQty).map((amount) => (
+                        <Button
+                          key={amount}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setItemQuantities(prev => ({
+                              ...prev,
+                              [item.id]: amount
+                            }));
+                          }}
+                          className="text-xs h-6 px-2"
+                        >
+                          {amount} {item.unit}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Consumption Impact Visualization */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-gray-700">Stock Impact Preview:</Label>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>After consumption</span>
+                      <span>Remaining: {(availableQty - currentQty).toFixed(3)} {item.unit}</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          percentageUsed > 75 ? "bg-red-500" :
+                          percentageUsed > 50 ? "bg-yellow-500" :
+                          percentageUsed > 25 ? "bg-blue-500" :
+                          "bg-green-500"
+                        )}
+                        style={{ width: `${Math.min(100, percentageUsed)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>0</span>
+                      <span>{availableQty} {item.unit}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Warning for high consumption */}
+                {percentageUsed > 75 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <div className="text-sm text-red-800">
+                      <span className="font-medium">High consumption warning:</span> You're consuming {percentageUsed.toFixed(1)}% of available stock.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -1142,26 +1664,100 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const renderProcessForm = () => {
     if (hasMixed) {
       return (
-        <Tabs value={processType} onValueChange={(value: any) => setProcessType(value)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="borrow" disabled={!hasTools}>
-              <Wrench className="w-4 h-4 mr-2" />
-              Borrow Tools ({selectedTools.length})
-            </TabsTrigger>
-            <TabsTrigger value="consume" disabled={!hasMaterials}>
-              <Package className="w-4 h-4 mr-2" />
-              Consume Materials ({selectedMaterials.length})
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          {/* Mixed Process Header */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Mixed Transaction Processing</h3>
+              <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                {selectedTools.length + selectedMaterials.length} items selected
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center space-x-2 text-blue-700">
+                <Wrench className="w-4 h-4" />
+                <span>{selectedTools.length} tools to borrow</span>
+              </div>
+              <div className="flex items-center space-x-2 text-purple-700">
+                <Package className="w-4 h-4" />
+                <span>{selectedMaterials.length} materials to consume</span>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-gray-600 bg-white rounded p-2 border">
+              💡 <strong>Smart Workflow:</strong> Complete both transactions in one go. The system will process borrowing and consumption simultaneously.
+            </div>
+          </div>
 
-          <TabsContent value="borrow" className="space-y-4">
-            {renderBorrowForm(selectedTools)}
-          </TabsContent>
+          <Tabs value={processType} onValueChange={(value: any) => setProcessType(value)} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2 h-12">
+              <TabsTrigger value="borrow" disabled={!hasTools} className="flex items-center space-x-2 h-10">
+                <Wrench className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="font-medium">Borrow Tools</div>
+                  <div className="text-xs opacity-75">{selectedTools.length} items</div>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="consume" disabled={!hasMaterials} className="flex items-center space-x-2 h-10">
+                <Package className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="font-medium">Consume Materials</div>
+                  <div className="text-xs opacity-75">{selectedMaterials.length} items</div>
+                </div>
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="consume" className="space-y-4">
-            {renderConsumeForm(selectedMaterials)}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="borrow" className="space-y-4">
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-4">
+                <div className="flex items-center space-x-2 text-blue-800 text-sm">
+                  <Info className="w-4 h-4" />
+                  <span>Configure borrowing details for {selectedTools.length} tool{selectedTools.length > 1 ? 's' : ''}. Materials will be processed separately.</span>
+                </div>
+              </div>
+              {renderBorrowForm(selectedTools)}
+            </TabsContent>
+
+            <TabsContent value="consume" className="space-y-4">
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 mb-4">
+                <div className="flex items-center space-x-2 text-purple-800 text-sm">
+                  <Info className="w-4 h-4" />
+                  <span>Configure consumption details for {selectedMaterials.length} material{selectedMaterials.length > 1 ? 's' : ''}. Tools will be processed separately.</span>
+                </div>
+              </div>
+              {renderConsumeForm(selectedMaterials)}
+            </TabsContent>
+          </Tabs>
+
+          {/* Mixed Process Summary */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <h4 className="font-medium text-gray-900 mb-3">Transaction Summary</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 text-blue-700 font-medium">
+                  <Wrench className="w-4 h-4" />
+                  <span>Borrowing Summary</span>
+                </div>
+                <div className="pl-6 space-y-1 text-gray-600">
+                  <div>Borrower: {borrowForm.borrowerName || 'Not specified'}</div>
+                  <div>Due Date: {borrowForm.dueDate ? new Date(borrowForm.dueDate).toLocaleDateString() : 'Not specified'}</div>
+                  <div>Tools: {selectedTools.length} items</div>
+                  <div>Units: {Object.values(selectedUnits).flat().length} total units</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2 text-purple-700 font-medium">
+                  <Package className="w-4 h-4" />
+                  <span>Consumption Summary</span>
+                </div>
+                <div className="pl-6 space-y-1 text-gray-600">
+                  <div>Consumer: {consumeForm.consumerName || 'Not specified'}</div>
+                  <div>Project: {consumeForm.projectName || 'Not specified'}</div>
+                  <div>Materials: {selectedMaterials.length} items</div>
+                  <div>Total Value: Calculated on submit</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       );
     } else if (hasTools) {
       return renderBorrowForm(selectedTools);
