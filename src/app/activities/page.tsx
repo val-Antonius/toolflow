@@ -102,6 +102,8 @@ const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]>
   }
 };
 
+
+
 const fetchConsumptions = async (): Promise<ConsumptionTransaction[]> => {
   try {
     const response = await fetch('/api/consumptions');
@@ -153,6 +155,8 @@ export default function Activities() {
 
     loadData();
   }, [activeTab]);
+
+
 
   const handleReturnClick = (borrowing: BorrowingTransaction) => {
     setSelectedBorrowing(borrowing);
@@ -581,9 +585,9 @@ export default function Activities() {
               Combined history of completed transactions (returns and consumptions)
             </p>
             <Button variant="outline" size="sm" asChild className="hover-lift">
-              <Link href="/reports?preset=history">
+              <Link href="/reports">
                 <FileText className="w-4 h-4 mr-2" />
-                Generate History Report
+                Generate Detailed Report
                 <ArrowUpRight className="w-3 h-3 ml-1" />
               </Link>
             </Button>

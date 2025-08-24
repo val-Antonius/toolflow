@@ -15,10 +15,16 @@ import {
 // GET /api/categories - Get all categories with optional filtering
 export async function GET(request: NextRequest) {
   try {
-    // Ambil hanya 3 kategori tetap
+    // Get all categories for reports
     const categories = await prisma.category.findMany({
-      where: {
-        name: { in: ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'] }
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        description: true
+      },
+      orderBy: {
+        name: 'asc'
       }
     });
     return successResponse(categories);
