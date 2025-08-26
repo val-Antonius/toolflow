@@ -8,15 +8,16 @@ import {
   handleDatabaseError
 } from '@/lib/api-utils'
 
-// Enhanced Report generation schema - Fixed to match new report types
+// Enhanced Report generation schema - FIXED: Multi-select support
 const ReportSchema = z.object({
   type: z.enum(['borrowing', 'consuming', 'tools', 'material', 'history', 'activity']),
   dateFrom: z.string().datetime().optional(),
   dateTo: z.string().datetime().optional(),
   borrowerName: z.string().optional(),
   consumerName: z.string().optional(),
-  categoryId: z.string().optional(),
-  status: z.string().optional(),
+  categoryId: z.union([z.string(), z.array(z.string())]).optional(), // Support single string or array
+  categoryIds: z.array(z.string()).optional(), // Alternative field for arrays
+  status: z.union([z.string(), z.array(z.string())]).optional(), // Support multi-select status
   itemType: z.enum(['all', 'tools', 'materials']).default('all'),
   format: z.enum(['json', 'csv', 'excel']).default('json'),
   page: z.number().int().min(1).default(1),
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
     borrowerName,
     consumerName,
     categoryId,
+    categoryIds,
     status,
     itemType,
     format,
@@ -48,6 +50,25 @@ export async function POST(request: NextRequest) {
     sortBy,
     sortOrder
   } = validation.data
+
+  // Process categories - support both single and multi-select
+  const processedCategoryIds = (() => {
+    if (categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0) {
+      return categoryIds;
+    }
+    if (categoryId) {
+      return Array.isArray(categoryId) ? categoryId : [categoryId];
+    }
+    return [];
+  })();
+
+  // Process status - support multi-select
+  const processedStatuses = (() => {
+    if (status) {
+      return Array.isArray(status) ? status : [status];
+    }
+    return [];
+  })();
 
     // Date range setup
     const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Default: 30 days ago
@@ -58,19 +79,19 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'borrowing':
-        reportData = await generateBorrowingReport(startDate, endDate, borrowerName, status, page, limit, sortBy, sortOrder)
+        reportData = await generateBorrowingReport(startDate, endDate, borrowerName, processedStatuses, processedCategoryIds, page, limit, sortBy, sortOrder)
         break
       case 'consuming':
-        reportData = await generateConsumptionReport(startDate, endDate, consumerName, categoryId, page, limit, sortBy, sortOrder)
+        reportData = await generateConsumptionReport(startDate, endDate, consumerName, processedCategoryIds, page, limit, sortBy, sortOrder)
         break
       case 'tools':
-        reportData = await generateToolsReport(categoryId, status, page, limit, sortBy, sortOrder)
+        reportData = await generateToolsReport(processedCategoryIds, processedStatuses, page, limit, sortBy, sortOrder)
         break
       case 'material':
-        reportData = await generateMaterialReport(categoryId, status, page, limit, sortBy, sortOrder)
+        reportData = await generateMaterialReport(processedCategoryIds, processedStatuses, page, limit, sortBy, sortOrder)
         break
       case 'history':
-        reportData = await generateHistoryReport(startDate, endDate, itemType, page, limit, sortBy, sortOrder)
+        reportData = await generateHistoryReport(startDate, endDate, itemType, processedCategoryIds, page, limit, sortBy, sortOrder)
         break
       case 'activity':
         reportData = await generateActivityReport(startDate, endDate, borrowerName, page, limit, sortBy, sortOrder)
@@ -126,7 +147,8 @@ async function generateBorrowingReport(
   startDate: Date,
   endDate: Date,
   borrowerName?: string,
-  status?: string,
+  statuses?: string[],
+  categoryIds?: string[],
   page: number = 1,
   limit: number = 100,
   sortBy?: string,
@@ -136,7 +158,22 @@ async function generateBorrowingReport(
     createdAt: { gte: startDate, lte: endDate }
   }
   if (borrowerName) where.borrowerName = { contains: borrowerName, mode: 'insensitive' }
-  if (status && status !== 'all') where.status = status
+
+  // Multi-select status support
+  if (statuses && statuses.length > 0 && !statuses.includes('all')) {
+    where.status = { in: statuses }
+  }
+
+  // Multi-select category support - filter by tool categories
+  if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+    where.borrowingItems = {
+      some: {
+        tool: {
+          categoryId: { in: categoryIds }
+        }
+      }
+    }
+  }
 
   // Build sort order
   const orderBy: any = {}
@@ -220,7 +257,7 @@ async function generateConsumptionReport(
   startDate: Date,
   endDate: Date,
   consumerName?: string,
-  categoryId?: string,
+  categoryIds?: string[],
   page: number = 1,
   limit: number = 100,
   sortBy?: string,
@@ -230,6 +267,17 @@ async function generateConsumptionReport(
     createdAt: { gte: startDate, lte: endDate }
   }
   if (consumerName) where.consumerName = { contains: consumerName, mode: 'insensitive' }
+
+  // Multi-select category support - filter by material categories
+  if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+    where.consumptionItems = {
+      some: {
+        material: {
+          categoryId: { in: categoryIds }
+        }
+      }
+    }
+  }
 
   // Build sort order
   const orderBy: any = {}
@@ -487,8 +535,8 @@ async function generateReturnReport(
 
 // Tools Report - All tools with availability status
 async function generateToolsReport(
-  categoryId?: string,
-  status?: string,
+  categoryIds?: string[],
+  statuses?: string[],
   page: number = 1,
   limit: number = 100,
   sortBy?: string,
@@ -496,16 +544,33 @@ async function generateToolsReport(
 ) {
   const where: any = {}
 
-  if (categoryId && categoryId !== 'all') {
-    where.categoryId = categoryId
+  // Multi-select category support
+  if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+    where.categoryId = { in: categoryIds }
   }
 
-  // Apply status filter
-  if (status && status !== 'all') {
-    if (status === 'available') {
-      where.availableQuantity = { gt: 0 }
-    } else if (status === 'in-use') {
-      where.availableQuantity = { lt: prisma.tool.fields.totalQuantity }
+  // Multi-select status support
+  if (statuses && statuses.length > 0 && !statuses.includes('all')) {
+    const statusConditions: any[] = []
+
+    statuses.forEach(status => {
+      if (status === 'available') {
+        statusConditions.push({ availableQuantity: { gt: 0 } })
+      } else if (status === 'in-use') {
+        statusConditions.push({
+          AND: [
+            { availableQuantity: { gte: 0 } },
+            { availableQuantity: { lt: { _ref: 'totalQuantity' } } }
+          ]
+        })
+      } else if (status === 'maintenance') {
+        // Add maintenance logic if needed
+        statusConditions.push({ status: 'MAINTENANCE' })
+      }
+    })
+
+    if (statusConditions.length > 0) {
+      where.OR = statusConditions
     }
   }
 
@@ -548,8 +613,8 @@ async function generateToolsReport(
 
 // Material Report - All materials with stock status
 async function generateMaterialReport(
-  categoryId?: string,
-  status?: string,
+  categoryIds?: string[],
+  statuses?: string[],
   page: number = 1,
   limit: number = 100,
   sortBy?: string,
@@ -557,21 +622,32 @@ async function generateMaterialReport(
 ) {
   const where: any = {}
 
-  if (categoryId && categoryId !== 'all') {
-    where.categoryId = categoryId
+  // Multi-select category support
+  if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+    where.categoryId = { in: categoryIds }
   }
 
-  // Apply status filter
-  if (status && status !== 'all') {
-    if (status === 'in-stock') {
-      where.currentQuantity = { gt: 0 }
-    } else if (status === 'low-stock') {
-      where.AND = [
-        { currentQuantity: { gt: 0 } },
-        { currentQuantity: { lte: prisma.material.fields.thresholdQuantity } }
-      ]
-    } else if (status === 'out-of-stock') {
-      where.currentQuantity = { lte: 0 }
+  // Multi-select status support
+  if (statuses && statuses.length > 0 && !statuses.includes('all')) {
+    const statusConditions: any[] = []
+
+    statuses.forEach(status => {
+      if (status === 'in-stock') {
+        statusConditions.push({ currentQuantity: { gt: 0 } })
+      } else if (status === 'low-stock') {
+        statusConditions.push({
+          AND: [
+            { currentQuantity: { gt: 0 } },
+            { currentQuantity: { lte: { _ref: 'thresholdQuantity' } } }
+          ]
+        })
+      } else if (status === 'out-of-stock') {
+        statusConditions.push({ currentQuantity: { lte: 0 } })
+      }
+    })
+
+    if (statusConditions.length > 0) {
+      where.OR = statusConditions
     }
   }
 
@@ -617,6 +693,7 @@ async function generateHistoryReport(
   startDate: Date,
   endDate: Date,
   itemType: 'all' | 'tools' | 'materials' = 'all',
+  categoryIds?: string[],
   page: number = 1,
   limit: number = 100,
   sortBy?: string,
@@ -626,11 +703,24 @@ async function generateHistoryReport(
 
   // Get completed borrowing transactions
   if (itemType === 'all' || itemType === 'tools') {
+    const borrowingWhere: any = {
+      status: 'COMPLETED',
+      returnDate: { gte: startDate, lte: endDate }
+    }
+
+    // Add category filter for borrowing transactions
+    if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+      borrowingWhere.borrowingItems = {
+        some: {
+          tool: {
+            categoryId: { in: categoryIds }
+          }
+        }
+      }
+    }
+
     const completedBorrowings = await prisma.borrowingTransaction.findMany({
-      where: {
-        status: 'COMPLETED',
-        returnDate: { gte: startDate, lte: endDate }
-      },
+      where: borrowingWhere,
       include: {
         borrowingItems: {
           include: {
@@ -662,10 +752,23 @@ async function generateHistoryReport(
 
   // Get consumption transactions
   if (itemType === 'all' || itemType === 'materials') {
+    const consumptionWhere: any = {
+      consumptionDate: { gte: startDate, lte: endDate }
+    }
+
+    // Add category filter for consumption transactions
+    if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
+      consumptionWhere.consumptionItems = {
+        some: {
+          material: {
+            categoryId: { in: categoryIds }
+          }
+        }
+      }
+    }
+
     const consumptions = await prisma.consumptionTransaction.findMany({
-      where: {
-        consumptionDate: { gte: startDate, lte: endDate }
-      },
+      where: consumptionWhere,
       include: {
         consumptionItems: {
           include: {

@@ -29,9 +29,9 @@ async function main() {
     { name: 'Peralatan Lapangan', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk operasional lapangan' },
     { name: 'Peralatan Kantor', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk kebutuhan kantor' },
     { name: 'Peralatan Jaringan', type: CATEGORY_TYPE.TOOL, description: 'Peralatan untuk kebutuhan jaringan' },
-    { name: 'Peralatan Lapangan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk operasional lapangan' },
-    { name: 'Peralatan Kantor', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan kantor' },
-    { name: 'Peralatan Jaringan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan jaringan' }
+    { name: 'Material Lapangan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk operasional lapangan' },
+    { name: 'Material Kantor', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan kantor' },
+    { name: 'Material Jaringan', type: CATEGORY_TYPE.MATERIAL, description: 'Material untuk kebutuhan jaringan' }
   ]) {
     const existing = await prisma.category.findFirst({ where: { name: cat.name, type: cat.type } });
     if (existing) {
@@ -107,7 +107,7 @@ async function main() {
       categoryId: categories[2].id,
       totalQuantity: 25,
       availableQuantity: 22,
-      location: 'Warehouse B',
+      location: 'Warehouse A',
       supplier: 'Precision Tools Ltd',
       purchasePrice: new Prisma.Decimal(150000),
       units: {
@@ -126,6 +126,80 @@ async function main() {
             unitNumber: i + 23,
             condition: ToolCondition.FAIR,
             isAvailable: false
+          }))
+        ]
+      }
+    },
+    {
+      name: 'Tangga Portable',
+      categoryId: categories[0].id,
+      totalQuantity: 10,
+      availableQuantity: 10,
+      location: 'Warehouse B',
+      supplier: 'Tool Corp',
+      purchasePrice: new Prisma.Decimal(1500000),
+      units: {
+        create: [
+          ...Array(5).fill(null).map((_, i) => ({
+            unitNumber: i + 1,
+            condition: ToolCondition.GOOD,
+            isAvailable: true
+          })),
+          ...Array(5).fill(null).map((_, i) => ({
+            unitNumber: i + 6,
+            condition: ToolCondition.EXCELLENT,
+            isAvailable: true
+          })),
+        ]
+      }
+    },
+    {
+      name: 'Safety Helmets',
+      categoryId: categories[1].id,
+      totalQuantity: 15,
+      availableQuantity: 15,
+      location: 'Warehouse B',
+      supplier: 'Tool Corp',
+      purchasePrice: new Prisma.Decimal(2500000),
+      units: {
+        create: [
+          ...Array(10).fill(null).map((_, i) => ({
+            unitNumber: i + 1,
+            condition: ToolCondition.EXCELLENT,
+            isAvailable: true
+          })),
+          ...Array(5).fill(null).map((_, i) => ({
+            unitNumber: i + 11,
+            condition: ToolCondition.GOOD,
+            isAvailable: true
+          }))
+        ]
+      }
+    },
+    {
+      name: 'Modem',
+      categoryId: categories[2].id,
+      totalQuantity: 25,
+      availableQuantity: 25,
+      location: 'Warehouse B',
+      supplier: 'Precision Tools Ltd',
+      purchasePrice: new Prisma.Decimal(150000),
+      units: {
+        create: [
+          ...Array(12).fill(null).map((_, i) => ({
+            unitNumber: i + 1,
+            condition: ToolCondition.GOOD,
+            isAvailable: true
+          })),
+          ...Array(10).fill(null).map((_, i) => ({
+            unitNumber: i + 13,
+            condition: ToolCondition.EXCELLENT,
+            isAvailable: true
+          })),
+          ...Array(3).fill(null).map((_, i) => ({
+            unitNumber: i + 23,
+            condition: ToolCondition.FAIR,
+            isAvailable: true
           }))
         ]
       }

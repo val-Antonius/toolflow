@@ -1,15 +1,7 @@
 import React from 'react';
-import { 
-  Package, 
-  TrendingUp, 
-  BarChart3, 
-  FileText, 
-  Calendar,
-  Users,
-  Archive
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { iconRegistry, IconName } from '@/lib/icon-registry';
 
 // Report Configuration System - Revolutionary Dynamic Context-Aware Filtering
 export interface ReportColumn {
@@ -38,7 +30,7 @@ export interface ReportTypeConfig {
   label: string;
   description: string;
   category: 'transaction' | 'inventory' | 'analytics';
-  icon: React.ComponentType<any>;
+  icon: IconName;
   filters: FilterConfig[];
   columns: ReportColumn[];
   defaultSort: { key: string; order: 'asc' | 'desc' };
@@ -142,7 +134,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
     label: 'Active Borrowing',
     description: 'Tools currently borrowed with status tracking and due dates',
     category: 'transaction',
-    icon: Package,
+    icon: 'Package',
     apiEndpoint: 'borrowing',
     supportsPagination: true,
     supportsExport: true,
@@ -228,7 +220,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
     label: 'Material Consumption',
     description: 'Material usage tracking with project details and cost analysis',
     category: 'transaction',
-    icon: TrendingUp,
+    icon: 'TrendingUp',
     apiEndpoint: 'consuming',
     supportsPagination: true,
     supportsExport: true,
@@ -308,7 +300,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
     label: 'Tools Inventory',
     description: 'Complete tools inventory with availability status and condition tracking',
     category: 'inventory',
-    icon: Package,
+    icon: 'Package',
     apiEndpoint: 'tools',
     supportsPagination: true,
     supportsExport: true,
@@ -404,7 +396,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
     label: 'Materials Inventory',
     description: 'Complete materials inventory with stock levels and threshold monitoring',
     category: 'inventory',
-    icon: Archive,
+    icon: 'Archive',
     apiEndpoint: 'material',
     supportsPagination: true,
     supportsExport: true,
@@ -493,7 +485,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
     label: 'Transaction History',
     description: 'Combined completed borrowing and consumption transactions with analytics',
     category: 'analytics',
-    icon: BarChart3,
+    icon: 'BarChart3',
     apiEndpoint: 'history',
     supportsPagination: true,
     supportsExport: true,
@@ -611,40 +603,59 @@ export const validateFilters = (reportType: string, filters: any): { isValid: bo
   return { isValid: errors.length === 0, errors };
 };
 
-// Dynamic filter options population
+// Dynamic filter options population - ULTIMATE FIX: No cloning, direct modification
 export const populateFilterOptions = async (reportType: string): Promise<ReportTypeConfig> => {
   const config = getReportConfig(reportType);
   if (!config) throw new Error('Invalid report type');
 
-  // Clone the config to avoid mutating the original
-  const populatedConfig = JSON.parse(JSON.stringify(config));
+  // Create a new config with populated filter options (preserving all original properties)
+  const populatedConfig: ReportTypeConfig = {
+    value: config.value,
+    label: config.label,
+    description: config.description,
+    category: config.category,
+    icon: config.icon, // Icon name string - safe to copy
+    apiEndpoint: config.apiEndpoint,
+    supportsPagination: config.supportsPagination,
+    supportsExport: config.supportsExport,
+    defaultSort: { ...config.defaultSort },
+    color: config.color,
+    filters: [], // Will be populated below
+    columns: [...config.columns] // Shallow copy is fine for columns
+  };
 
-  // Populate category options
+  // Populate filters with category options
   try {
     const response = await fetch('/api/categories');
     const categories = await response.json();
 
-    populatedConfig.filters.forEach((filter: FilterConfig) => {
+    populatedConfig.filters = config.filters.map(filter => {
       if (filter.key === 'category') {
-        filter.options = [
-          { value: 'all', label: 'All Categories' },
-          ...categories.data
-            .filter((cat: any) => {
-              // Filter categories based on report type
-              if (reportType === 'tools' || reportType === 'borrowing') {
-                return cat.type === 'TOOL';
-              }
-              if (reportType === 'materials' || reportType === 'consuming') {
-                return cat.type === 'MATERIAL';
-              }
-              return true; // For transaction-history, show all
-            })
-            .map((cat: any) => ({ value: cat.id, label: cat.name }))
-        ];
+        return {
+          ...filter,
+          options: [
+            { value: 'all', label: 'All Categories' },
+            ...categories.data
+              .filter((cat: any) => {
+                // Filter categories based on report type
+                if (reportType === 'tools' || reportType === 'borrowing') {
+                  return cat.type === 'TOOL';
+                }
+                if (reportType === 'materials' || reportType === 'consuming') {
+                  return cat.type === 'MATERIAL';
+                }
+                return true; // For transaction-history, show all
+              })
+              .map((cat: any) => ({ value: cat.id, label: cat.name }))
+          ]
+        };
       }
+      return { ...filter }; // Shallow copy for other filters
     });
   } catch (error) {
     console.error('Failed to populate category options:', error);
+    // Fallback to original filters if API fails
+    populatedConfig.filters = [...config.filters];
   }
 
   return populatedConfig;

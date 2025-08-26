@@ -4,6 +4,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ReportTypeConfig, getReportsByCategory } from '@/lib/report-config';
+import { getIconComponent } from '@/lib/icon-registry';
 import { cn } from '@/lib/utils';
 
 interface ReportTypeSelectorProps {
@@ -102,7 +103,7 @@ export function ReportTypeSelector({
               {categoryReports.map((report) => {
                 const isSelected = selectedType === report.value;
                 const colorClasses = getColorClasses(report.color, isSelected);
-                const IconComponent = report.icon;
+                const IconComponent = getIconComponent(report.icon);
 
                 return (
                   <Card

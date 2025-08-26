@@ -193,11 +193,25 @@ export function UnifiedReportPreview({
   const renderSummaryCards = () => {
     if (!summary) return null;
 
-    const summaryItems = Object.entries(summary).map(([key, value]) => ({
-      key,
-      label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
-      value: typeof value === 'number' ? value.toLocaleString('id-ID') : value
-    }));
+    const summaryItems = Object.entries(summary).map(([key, value]) => {
+      // Convert value to string for display
+      let displayValue: string;
+      if (typeof value === 'number') {
+        displayValue = value.toLocaleString('id-ID');
+      } else if (typeof value === 'string') {
+        displayValue = value;
+      } else if (value === null || value === undefined) {
+        displayValue = '0';
+      } else {
+        displayValue = String(value);
+      }
+
+      return {
+        key,
+        label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+        value: displayValue
+      };
+    });
 
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

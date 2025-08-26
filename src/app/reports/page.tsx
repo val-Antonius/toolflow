@@ -22,6 +22,7 @@ import {
 import { ReportTypeSelector } from '@/components/reports/ReportTypeSelector';
 import { DynamicFilters } from '@/components/reports/DynamicFilters';
 import { UnifiedReportPreview } from '@/components/reports/UnifiedReportPreview';
+import { getIconComponent } from '@/lib/icon-registry';
 import {
   getAllReportTypes,
   getReportConfig,
@@ -94,16 +95,26 @@ const generateUnifiedReport = async (
       }
     }
 
-    // Handle category filters (multiselect support)
+    // Handle category filters (FIXED: Full multi-select support)
     if (filters.category && Array.isArray(filters.category) && filters.category.length > 0) {
-      apiFilters.categoryId = filters.category[0]; // For now, use first category
+      // Filter out 'all' values and send as array
+      const validCategories = filters.category.filter(cat => cat !== 'all');
+      if (validCategories.length > 0) {
+        apiFilters.categoryIds = validCategories; // Use categoryIds for arrays
+      }
     } else if (filters.category && filters.category !== 'all') {
-      apiFilters.categoryId = filters.category;
+      apiFilters.categoryId = filters.category; // Single category
     }
 
-    // Handle other filters
-    if (filters.status && filters.status !== 'all') {
-      apiFilters.status = filters.status;
+    // Handle status filters (FIXED: Multi-select support)
+    if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
+      // Filter out 'all' values and send as array
+      const validStatuses = filters.status.filter(status => status !== 'all');
+      if (validStatuses.length > 0) {
+        apiFilters.status = validStatuses; // Send as array
+      }
+    } else if (filters.status && filters.status !== 'all') {
+      apiFilters.status = filters.status; // Single status
     }
     if (filters.borrower) {
       apiFilters.borrowerName = filters.borrower;
@@ -115,6 +126,13 @@ const generateUnifiedReport = async (
       apiFilters.actorName = filters.person;
     }
 
+    // Debug logging
+    console.log('Sending API request:', {
+      reportType: config.value,
+      apiEndpoint: config.apiEndpoint,
+      apiFilters
+    });
+
     const response = await fetch('/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -122,7 +140,13 @@ const generateUnifiedReport = async (
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
     }
 
     if (format === 'json') {
@@ -405,27 +429,34 @@ export default function Reports() {
             {/* Selected Report Info */}
             <div className="bg-white rounded-xl border p-6">
               <div className="flex items-center space-x-4 mb-4">
-                <div className={cn(
-                  "p-3 rounded-lg",
-                  reportState.reportConfig.color === 'blue' && "bg-blue-100",
-                  reportState.reportConfig.color === 'green' && "bg-green-100",
-                  reportState.reportConfig.color === 'purple' && "bg-purple-100",
-                  reportState.reportConfig.color === 'orange' && "bg-orange-100",
-                  reportState.reportConfig.color === 'indigo' && "bg-indigo-100"
-                )}>
-                  <reportState.reportConfig.icon className={cn(
-                    "w-6 h-6",
-                    reportState.reportConfig.color === 'blue' && "text-blue-600",
-                    reportState.reportConfig.color === 'green' && "text-green-600",
-                    reportState.reportConfig.color === 'purple' && "text-purple-600",
-                    reportState.reportConfig.color === 'orange' && "text-orange-600",
-                    reportState.reportConfig.color === 'indigo' && "text-indigo-600"
-                  )} />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{reportState.reportConfig.label}</h2>
-                  <p className="text-gray-600">{reportState.reportConfig.description}</p>
-                </div>
+                {(() => {
+                  const IconComponent = getIconComponent(reportState.reportConfig.icon);
+                  return (
+                    <>
+                      <div className={cn(
+                        "p-3 rounded-lg",
+                        reportState.reportConfig.color === 'blue' && "bg-blue-100",
+                        reportState.reportConfig.color === 'green' && "bg-green-100",
+                        reportState.reportConfig.color === 'purple' && "bg-purple-100",
+                        reportState.reportConfig.color === 'orange' && "bg-orange-100",
+                        reportState.reportConfig.color === 'indigo' && "bg-indigo-100"
+                      )}>
+                        <IconComponent className={cn(
+                          "w-6 h-6",
+                          reportState.reportConfig.color === 'blue' && "text-blue-600",
+                          reportState.reportConfig.color === 'green' && "text-green-600",
+                          reportState.reportConfig.color === 'purple' && "text-purple-600",
+                          reportState.reportConfig.color === 'orange' && "text-orange-600",
+                          reportState.reportConfig.color === 'indigo' && "text-indigo-600"
+                        )} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">{reportState.reportConfig.label}</h2>
+                        <p className="text-gray-600">{reportState.reportConfig.description}</p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Dynamic Filters */}
