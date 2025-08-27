@@ -10,10 +10,11 @@ interface KPICardProps {
     isPositive: boolean;
   };
   icon?: React.ReactNode;
+  description?: string;
   className?: string;
 }
 
-export function KPICard({ title, value, trend, icon, className }: KPICardProps) {
+export function KPICard({ title, value, trend, icon, description, className }: KPICardProps) {
   return (
     <div className={cn(
       "glass rounded-xl p-6 hover-lift cursor-pointer transition-all-smooth min-w-[280px]",
@@ -40,6 +41,10 @@ export function KPICard({ title, value, trend, icon, className }: KPICardProps) 
               </span>
               <span className="text-xs text-muted-foreground">vs last month</span>
             </div>
+          )}
+
+          {description && (
+            <p className="text-xs text-muted-foreground mt-2">{description}</p>
           )}
         </div>
         

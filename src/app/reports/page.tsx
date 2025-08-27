@@ -512,6 +512,7 @@ export default function Reports() {
               data={reportState.reportData.data || []}
               pagination={reportState.reportData.pagination}
               summary={reportState.reportData.summary}
+              appliedFilters={reportState.filters}
               isLoading={reportState.isLoading}
               sortBy={sortBy}
               sortOrder={sortOrder}

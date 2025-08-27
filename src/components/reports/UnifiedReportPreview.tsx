@@ -4,17 +4,20 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ReportTypeConfig, ReportColumn } from '@/lib/report-config';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
+import { usePDFExport } from '@/hooks/usePDFExport';
+import { ExportProgress } from './ExportProgress';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
   ChevronsRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Download,
   FileText,
-  BarChart3
+  BarChart3,
+  FileDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +33,7 @@ interface UnifiedReportPreviewProps {
     hasPrev: boolean;
   };
   summary?: any;
+  appliedFilters?: any;
   isLoading?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -43,6 +47,7 @@ export function UnifiedReportPreview({
   data,
   pagination,
   summary,
+  appliedFilters,
   isLoading = false,
   sortBy,
   sortOrder = 'desc',
@@ -50,6 +55,18 @@ export function UnifiedReportPreview({
   onPageChange,
   onExport
 }: UnifiedReportPreviewProps) {
+  const { isExporting, exportProgress, exportReportData } = usePDFExport();
+
+  const handlePDFExport = async () => {
+    if (!data || data.length === 0) return;
+
+    const reportData = {
+      data,
+      summary
+    };
+
+    await exportReportData(reportConfig, reportData, appliedFilters || {});
+  };
   
   const renderCellContent = (column: ReportColumn, value: any, row: any) => {
     if (column.render) {
@@ -274,26 +291,40 @@ export function UnifiedReportPreview({
               <p className="text-sm text-gray-600 mt-1">{reportConfig.description}</p>
             </div>
             
-            {onExport && reportConfig.supportsExport && (
+            {reportConfig.supportsExport && (
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onExport('csv')}
+                  onClick={handlePDFExport}
+                  disabled={isExporting || !data || data.length === 0}
                   className="h-8"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  CSV
+                  <FileDown className="w-4 h-4 mr-2" />
+                  PDF
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onExport('excel')}
-                  className="h-8"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Excel
-                </Button>
+                {onExport && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onExport('csv')}
+                      className="h-8"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      CSV
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onExport('excel')}
+                      className="h-8"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Excel
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -342,6 +373,9 @@ export function UnifiedReportPreview({
         {/* Pagination */}
         {renderPagination()}
       </div>
+
+      {/* Export Progress */}
+      {exportProgress && <ExportProgress progress={exportProgress} />}
     </div>
   );
 }

@@ -6,25 +6,13 @@ import { successResponse, handleDatabaseError } from '@/lib/api-utils'
 export async function GET(request: NextRequest) {
   try {
     console.log('KPI API: Starting to fetch dashboard KPIs...')
-    // Get date range for trend calculation (last 30 days vs previous 30 days)
-    const now = new Date()
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
 
     // Parallel queries for better performance
     const [
       tools,
       totalMaterials,
-      activeBorrowings,
-      overdueBorrowings,
-      recentConsumptions,
-      poorConditionReturns,
-      // Previous period data for trends
-      previousPeriodBorrowings,
-      previousPeriodConsumptions,
-      previousPeriodReturns,
     ] = await Promise.all([
-      // Current totals with unit conditions
+      // Get all tools with their units and conditions
       prisma.tool.findMany({
         include: {
           units: {
@@ -35,158 +23,50 @@ export async function GET(request: NextRequest) {
           }
         }
       }),
+      // Get total materials count
       prisma.material.count(),
-      prisma.borrowingTransaction.count({
-        where: { status: 'ACTIVE' }
-      }),
-      prisma.borrowingTransaction.count({
-        where: { status: 'OVERDUE' }
-      }),
-      prisma.consumptionTransaction.count({
-        where: {
-          createdAt: { gte: thirtyDaysAgo }
-        }
-      }),
-      prisma.borrowingItem.count({
-        where: {
-          returnCondition: 'POOR',
-          returnDate: { gte: thirtyDaysAgo }
-        }
-      }),
-
-      // Previous period data for trend calculation
-      prisma.borrowingTransaction.count({
-        where: {
-          createdAt: {
-            gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo
-          }
-        }
-      }),
-      prisma.consumptionTransaction.count({
-        where: {
-          createdAt: {
-            gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo
-          }
-        }
-      }),
-      prisma.borrowingItem.count({
-        where: {
-          returnCondition: 'POOR',
-          returnDate: {
-            gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo
-          }
-        }
-      }),
     ])
 
-    // Calculate trends (percentage change)
-    const calculateTrend = (current: number, previous: number) => {
-      if (previous === 0) return current > 0 ? 100 : 0
-      return Math.round(((current - previous) / previous) * 100)
-    }
-
-    const borrowingTrend = calculateTrend(activeBorrowings + overdueBorrowings, previousPeriodBorrowings)
-    const consumptionTrend = calculateTrend(recentConsumptions, previousPeriodConsumptions)
-    const returnTrend = calculateTrend(poorConditionReturns, previousPeriodReturns)
-
-    // Get additional metrics
-    const [lowStockMaterials, toolsInUse, totalValue] = await Promise.all([
-      // Count materials where current quantity is less than or equal to threshold
-      prisma.$queryRaw<[{count: bigint}]>`
-        SELECT COUNT(*) as count
-        FROM materials
-        WHERE currentQuantity <= thresholdQuantity
-      `,
-      // Count tools that are currently in use (available < total)
-      prisma.$queryRaw<[{count: bigint}]>`
-        SELECT COUNT(*) as count
-        FROM tools
-        WHERE availableQuantity < totalQuantity
-      `,
-      prisma.consumptionTransaction.aggregate({
-        where: {
-          createdAt: { gte: thirtyDaysAgo }
-        },
-        _sum: {
-          totalValue: true
-        }
-      })
-    ])
-
-    // Extract count values from raw query results
-    const lowStockCount = Number(lowStockMaterials[0]?.count || 0)
-    const toolsInUseCount = Number(toolsInUse[0]?.count || 0)
-
-    // Calculate tool unit statistics
+    // Calculate tool and unit statistics
     const toolStats = tools.reduce((acc, tool) => {
+      acc.totalTools++;
       tool.units.forEach(unit => {
-        if (unit.condition === "POOR") acc.poorCondition++;
-        if (!unit.isAvailable) acc.inUse++;
+        acc.totalUnits++;
+        if (unit.condition === "FAIR" || unit.condition === "POOR") {
+          acc.fairAndPoorCondition++;
+        }
       });
       return acc;
-    }, { total: tools.reduce((sum, t) => sum + t.units.length, 0), poorCondition: 0, inUse: 0 });
+    }, {
+      totalTools: 0,
+      totalUnits: 0,
+      fairAndPoorCondition: 0
+    });
 
     const kpis = [
       {
-        title: "Total Tool Units",
-        value: toolStats.total,
-        trend: 0, // No trend for total inventory
-        unit: "units"
+        title: "Total Tools",
+        value: toolStats.totalTools.toString(),
+        icon: "wrench",
+        description: `${tools.length} different tool types`
       },
       {
-        title: "Units In Use",
-        value: toolStats.inUse,
-        trend: 0,
-        unit: "units"
+        title: "Total Units",
+        value: toolStats.totalUnits.toString(),
+        icon: "package",
+        description: "Total tool units available"
       },
       {
-        title: "Poor Condition Units",
-        value: toolStats.poorCondition,
-        trend: 0,
-        unit: "units"
+        title: "Fair & Poor Condition",
+        value: toolStats.fairAndPoorCondition.toString(),
+        icon: "alert-triangle",
+        description: "Units needing attention"
       },
       {
         title: "Total Materials",
-        value: totalMaterials.toLocaleString(),
-        trend: {
-          value: Math.abs(consumptionTrend),
-          isPositive: consumptionTrend >= 0
-        },
+        value: totalMaterials.toString(),
         icon: "package",
-        description: `${lowStockCount} materials below threshold`
-      },
-      {
-        title: "Active Borrowings",
-        value: (activeBorrowings + overdueBorrowings).toString(),
-        trend: {
-          value: Math.abs(borrowingTrend),
-          isPositive: borrowingTrend <= 0 // Lower borrowings is better
-        },
-        icon: "arrow-right-left",
-        description: `${overdueBorrowings} overdue`
-      },
-      {
-        title: "Material Value",
-        value: `Rp ${(Number(totalValue._sum.totalValue) || 0).toLocaleString()}`,
-        trend: {
-          value: Math.abs(consumptionTrend),
-          isPositive: consumptionTrend >= 0
-        },
-        icon: "trending-up",
-        description: "Consumed last 30 days"
-      },
-      {
-        title: "Poor Condition Returns",
-        value: poorConditionReturns.toString(),
-        trend: {
-          value: Math.abs(returnTrend),
-          isPositive: returnTrend <= 0 // Lower poor returns is better
-        },
-        icon: "alert-triangle",
-        description: "Last 30 days"
+        description: "Different material types"
       }
     ]
 
