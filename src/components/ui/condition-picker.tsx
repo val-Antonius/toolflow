@@ -66,11 +66,11 @@ export function ConditionPicker({
       newUnitUpdates[unit.id] = { condition, notes: notes || '' };
     });
     setUnitUpdates(newUnitUpdates);
-    
-    // Call callback
-    if (onConditionsChange) {
-      onConditionsChange([{ condition, notes: notes || '' }]);
-    }
+    setBulkCondition(condition);
+    setBulkNotes(notes || '');
+
+    // ✅ FIXED: Don't auto-trigger callback, let user submit manually
+    // Only update internal state, callback will be triggered on manual submit
   };
 
   return (
@@ -171,7 +171,13 @@ export function ConditionPicker({
             </div>
             
             <Button
-              onClick={() => applyBulkCondition(bulkCondition, bulkNotes)}
+              onClick={() => {
+                applyBulkCondition(bulkCondition, bulkNotes);
+                // Now trigger the callback after user explicitly clicks apply
+                if (onConditionsChange) {
+                  onConditionsChange([{ condition: bulkCondition, notes: bulkNotes }]);
+                }
+              }}
               className="bg-blue-500 hover:bg-blue-600 text-white"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
@@ -179,33 +185,15 @@ export function ConditionPicker({
             </Button>
           </div>
           
-          {/* Quick Condition Buttons */}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Apply:</Label>
-            <div className="flex flex-wrap gap-2">
-              {conditionOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => applyBulkCondition(option.value as any, bulkNotes)}
-                  className="text-xs"
-                >
-                  <Badge className={cn("mr-2 text-xs", option.color)}>
-                    {option.label}
-                  </Badge>
-                  All {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+
         </div>
       )}
       
       {/* Individual Mode Interface */}
       {selectionMode === 'individual' && (
-        <div className="space-y-3">
-          {units.map((unit) => (
+        <div className="space-y-4">
+          <div className="space-y-3">
+            {units.map((unit) => (
             <div key={unit.id} className="p-3 rounded-lg border bg-white/50 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -256,7 +244,31 @@ export function ConditionPicker({
                 />
               </div>
             </div>
-          ))}
+            ))}
+          </div>
+
+          {/* Apply Individual Changes Button */}
+          {Object.keys(unitUpdates).length > 0 && (
+            <div className="pt-4 border-t border-gray-200">
+              <Button
+                onClick={() => {
+                  // Convert individual unit updates to conditions array
+                  const conditions = Object.values(unitUpdates).map(update => ({
+                    condition: update.condition as 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR',
+                    notes: update.notes || ''
+                  }));
+
+                  if (onConditionsChange) {
+                    onConditionsChange(conditions);
+                  }
+                }}
+                className="w-full bg-green-500 hover:bg-green-600 text-white"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Apply Individual Changes ({Object.keys(unitUpdates).length} units)
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

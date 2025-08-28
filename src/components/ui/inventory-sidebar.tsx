@@ -6,6 +6,7 @@ import { Textarea } from './textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 import { Badge } from './badge';
+import { DateTimePicker } from './datetime-picker';
 import { cn } from '@/lib/utils';
 import {
   X,
@@ -15,7 +16,8 @@ import {
   Wrench,
   User,
   AlertTriangle,
-  Info
+  Info,
+  CheckCircle
 } from 'lucide-react';
 
 interface InventoryItem {
@@ -394,8 +396,56 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
           };
           onSubmit(consumePayload);
         } else if (hasMixed) {
-          // Handle mixed process - this shouldn't happen with current UI but adding for safety
-          throw new Error('Mixed process requires selecting either borrow or consume tab first');
+          // Handle mixed process - process both borrow and consume
+          console.log('Processing mixed transaction...');
+
+          // Validate both forms are complete
+          const borrowComplete = borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose &&
+                                Object.values(selectedUnits).flat().length > 0;
+          const consumeComplete = consumeForm.consumerName && consumeForm.purpose &&
+                                 Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0;
+
+          if (!borrowComplete) {
+            throw new Error('Please complete the borrowing form and select tools before submitting');
+          }
+
+          if (!consumeComplete) {
+            throw new Error('Please complete the consumption form and set material quantities before submitting');
+          }
+
+          // Validate material quantities
+          validateMaterialQuantities();
+
+          // Prepare mixed payload
+          const mixedPayload = {
+            type: 'mixed',
+            borrow: {
+              borrowerName: borrowForm.borrowerName,
+              dueDate: new Date(borrowForm.dueDate).toISOString(),
+              purpose: borrowForm.purpose,
+              notes: borrowForm.notes,
+              items: selectedItems
+                .filter(item => item.type === 'tool')
+                .map(tool => ({
+                  toolId: tool.id,
+                  units: selectedUnits[tool.id] || [],
+                  notes: borrowForm.notes
+                }))
+            },
+            consume: {
+              consumerName: consumeForm.consumerName,
+              purpose: consumeForm.purpose,
+              projectName: consumeForm.projectName || undefined,
+              notes: consumeForm.notes || undefined,
+              items: selectedItems
+                .filter(item => item.type === 'material')
+                .map(material => ({
+                  materialId: material.id,
+                  quantity: Math.max(0.001, itemQuantities[material.id] || 0.001)
+                }))
+            }
+          };
+          onSubmit(mixedPayload);
         }
         break;
       case 'delete':
@@ -1057,60 +1107,126 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     console.log('Rendering borrow form with items:', items);
     console.log('Items with units:', items.map(item => ({ id: item.id, name: item.name, units: item.units })));
 
+    const totalUnits = items.reduce((sum, item) => sum + (item.units?.filter(u => u.isAvailable)?.length || 0), 0);
+    const selectedUnitsCount = Object.values(selectedUnits).flat().length;
+
     return (
-      <div className="space-y-4">
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="font-medium text-blue-900 mb-2">Borrowing Transaction</h4>
-          <p className="text-sm text-blue-700">
-            Processing {items.length} tool(s) for borrowing
-          </p>
+      <div className="space-y-6">
+        {/* Enhanced Transaction Header */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200/60 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <Wrench className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Borrowing Transaction</h3>
+                <p className="text-xs text-gray-600">Configure tool borrowing details</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-semibold text-gray-900">{items.length} Tools</div>
+              <div className="text-xs text-gray-600">{totalUnits} units available</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-gray-900">{items.length}</div>
+              <div className="text-gray-600">Tools</div>
+            </div>
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-gray-900">{totalUnits}</div>
+              <div className="text-gray-600">Available Units</div>
+            </div>
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-blue-600">{selectedUnitsCount}</div>
+              <div className="text-gray-600">Selected</div>
+            </div>
+          </div>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label>Borrower Name</Label>
-          <Input
-            value={borrowForm.borrowerName}
-            onChange={(e) => setBorrowForm(prev => ({ ...prev, borrowerName: e.target.value }))}
-            placeholder="Enter borrower name"
-            required
-          />
+        {/* Borrower Information */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900">Borrower Information</h3>
+            <p className="text-sm text-gray-600 mt-1">Enter borrower details and transaction information</p>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Borrower Name</Label>
+                <Input
+                  value={borrowForm.borrowerName}
+                  onChange={(e) => setBorrowForm(prev => ({ ...prev, borrowerName: e.target.value }))}
+                  placeholder="Enter borrower name"
+                  className="mt-2"
+                  required
+                />
+              </div>
+
+              <div>
+                <DateTimePicker
+                  id="borrowDueDate"
+                  label="Due Date & Time"
+                  value={borrowForm.dueDate}
+                  onChange={(value) => setBorrowForm(prev => ({ ...prev, dueDate: value }))}
+                  min={new Date().toISOString().slice(0, 16)}
+                  required
+                  placeholder="Select due date and time for borrowing"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Purpose</Label>
+              <Textarea
+                value={borrowForm.purpose}
+                onChange={(e) => setBorrowForm(prev => ({ ...prev, purpose: e.target.value }))}
+                placeholder="Describe the purpose of borrowing these tools..."
+                className="mt-2 min-h-[80px]"
+                required
+              />
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  {borrowForm.purpose?.length || 0}/500 characters
+                </div>
+                {borrowForm.purpose && borrowForm.purpose.length > 0 && (
+                  <div className="text-xs text-green-600">✓ Purpose provided</div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Additional Notes</Label>
+              <Textarea
+                value={borrowForm.notes || ''}
+                onChange={(e) => setBorrowForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Any additional notes..."
+                className="mt-2 min-h-[60px]"
+              />
+              <div className="text-xs text-gray-500 mt-2">
+                {borrowForm.notes?.length || 0}/500 characters (optional)
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <Label>Due Date</Label>
-          <Input
-            type="datetime-local"
-            value={borrowForm.dueDate}
-            onChange={(e) => setBorrowForm(prev => ({ ...prev, dueDate: e.target.value }))}
-            min={new Date().toISOString().slice(0, 16)}
-            required
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label>Purpose</Label>
-        <Textarea
-          value={borrowForm.purpose}
-          onChange={(e) => setBorrowForm(prev => ({ ...prev, purpose: e.target.value }))}
-          placeholder="Describe the purpose of borrowing these tools..."
-          required
-        />
-      </div>
-
-      <div>
-        <Label>Additional Notes</Label>
-        <Textarea
-          value={borrowForm.notes || ''}
-          onChange={(e) => setBorrowForm(prev => ({ ...prev, notes: e.target.value }))}
-          placeholder="Any additional notes..."
-        />
-      </div>
-
-      <div className="space-y-4">
-        <Label className="text-lg font-semibold">Tools to Borrow</Label>
-        {items.map((item) => {
+        {/* Tools Selection */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">Tools Selection</h3>
+                <p className="text-sm text-gray-600 mt-1">Select specific units for each tool</p>
+              </div>
+              <div className="text-xs text-gray-500">
+                {selectedUnitsCount}/{totalUnits} units selected
+              </div>
+            </div>
+          </div>
+          <div className="p-4 space-y-4">
+            {items.map((item) => {
           const availableUnits = item.units?.filter(u => u.isAvailable) || [];
           const selectedCount = selectedUnits[item.id]?.length || 0;
           const currentMode = selectionMode[item.id] || 'quantity';
@@ -1421,9 +1537,10 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
   const renderConsumeForm = (items: SelectedItem[]) => {
@@ -1437,66 +1554,141 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       unit: item.unit
     })));
 
+    const totalMaterials = items.length;
+    const totalValue = items.reduce((sum, item) => {
+      const qty = itemQuantities[item.id] || 0.001;
+      const price = item.unitPrice || 0;
+      return sum + (qty * price);
+    }, 0);
+
     return (
-      <div className="space-y-4">
-        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-          <h4 className="font-medium text-purple-900 mb-2">Consumption Transaction</h4>
-          <p className="text-sm text-purple-700">
-            Processing {items.length} material(s) for consumption
-          </p>
+      <div className="space-y-6">
+        {/* Enhanced Transaction Header */}
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200/60 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Consumption Transaction</h3>
+                <p className="text-xs text-gray-600">Configure material consumption details</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-semibold text-gray-900">{totalMaterials} Materials</div>
+              <div className="text-xs text-gray-600">Ready for consumption</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-gray-900">{totalMaterials}</div>
+              <div className="text-gray-600">Materials</div>
+            </div>
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-gray-900">
+                {items.reduce((sum, item) => sum + (itemQuantities[item.id] || 0.001), 0).toFixed(2)}
+              </div>
+              <div className="text-gray-600">Total Quantity</div>
+            </div>
+            <div className="text-center p-3 bg-white/60 rounded-lg border">
+              <div className="font-semibold text-purple-600">
+                {totalValue > 0 ? `$${totalValue.toFixed(2)}` : 'TBD'}
+              </div>
+              <div className="text-gray-600">Est. Value</div>
+            </div>
+          </div>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="consume-consumer-name">Consumer Name</Label>
-          <Input
-            id="consume-consumer-name"
-            name="consume-consumer-name"
-            value={consumeForm.consumerName}
-            onChange={(e) => setConsumeForm(prev => ({ ...prev, consumerName: e.target.value }))}
-            placeholder="Enter consumer name"
-            required
-          />
+        {/* Consumer Information */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900">Consumer Information</h3>
+            <p className="text-sm text-gray-600 mt-1">Enter consumer details and consumption information</p>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Consumer Name</Label>
+                <Input
+                  id="consume-consumer-name"
+                  name="consume-consumer-name"
+                  value={consumeForm.consumerName}
+                  onChange={(e) => setConsumeForm(prev => ({ ...prev, consumerName: e.target.value }))}
+                  placeholder="Enter consumer name"
+                  className="mt-2"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-700">Project Name</Label>
+                <Input
+                  id="consume-project-name"
+                  name="consume-project-name"
+                  value={consumeForm.projectName}
+                  onChange={(e) => setConsumeForm(prev => ({ ...prev, projectName: e.target.value }))}
+                  placeholder="Optional project name"
+                  className="mt-2"
+                />
+                <div className="text-xs text-gray-500 mt-1">Optional - for project tracking</div>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Purpose</Label>
+              <Textarea
+                id="consume-purpose"
+                name="consume-purpose"
+                value={consumeForm.purpose}
+                onChange={(e) => setConsumeForm(prev => ({ ...prev, purpose: e.target.value }))}
+                placeholder="Describe the purpose of consuming these materials..."
+                className="mt-2 min-h-[80px]"
+                required
+              />
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-xs text-gray-500">
+                  {consumeForm.purpose?.length || 0}/500 characters
+                </div>
+                {consumeForm.purpose && consumeForm.purpose.length > 0 && (
+                  <div className="text-xs text-green-600">✓ Purpose provided</div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-gray-700">Additional Notes</Label>
+              <Textarea
+                id="consume-notes"
+                name="consume-notes"
+                value={consumeForm.notes}
+                onChange={(e) => setConsumeForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Any additional notes..."
+                className="mt-2 min-h-[60px]"
+              />
+              <div className="text-xs text-gray-500 mt-2">
+                {consumeForm.notes?.length || 0}/500 characters (optional)
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <Label htmlFor="consume-project-name">Project Name</Label>
-          <Input
-            id="consume-project-name"
-            name="consume-project-name"
-            value={consumeForm.projectName}
-            onChange={(e) => setConsumeForm(prev => ({ ...prev, projectName: e.target.value }))}
-            placeholder="Optional project name"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="consume-purpose">Purpose</Label>
-        <Textarea
-          id="consume-purpose"
-          name="consume-purpose"
-          value={consumeForm.purpose}
-          onChange={(e) => setConsumeForm(prev => ({ ...prev, purpose: e.target.value }))}
-          placeholder="Describe the purpose of consuming these materials..."
-          required
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="consume-notes">Additional Notes</Label>
-        <Textarea
-          id="consume-notes"
-          name="consume-notes"
-          value={consumeForm.notes}
-          onChange={(e) => setConsumeForm(prev => ({ ...prev, notes: e.target.value }))}
-          placeholder="Any additional notes..."
-        />
-      </div>
-
-      <div className="space-y-4">
-        <Label className="text-lg font-semibold">Materials to Consume</Label>
-        {items.map((item) => {
+        {/* Materials Selection */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">Materials Consumption</h3>
+                <p className="text-sm text-gray-600 mt-1">Set consumption quantities for each material</p>
+              </div>
+              <div className="text-xs text-gray-500">
+                {items.filter(item => itemQuantities[item.id] > 0).length}/{items.length} configured
+              </div>
+            </div>
+          </div>
+          <div className="p-4 space-y-4">
+            {items.map((item) => {
           const availableQty = item.quantity || item.currentQuantity || item.available || 0;
           const currentQty = itemQuantities[item.id] || 0.001;
           const percentageUsed = (currentQty / availableQty) * 100;
@@ -1656,9 +1848,10 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
   const renderProcessForm = () => {
@@ -1823,8 +2016,9 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       />
 
       {/* Sidebar */}
-      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-y-auto transition-all-smooth">
-        <div className="p-6">
+      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-hidden transition-all-smooth">
+        <div className="h-full overflow-y-auto">
+          <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -1845,25 +2039,216 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             {type === 'process' && renderProcessForm()}
             {type === 'delete' && renderDeleteForm()}
 
-            {/* Action Buttons */}
-            <div className="flex space-x-3 pt-4 border-t border-gray-200">
-              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className={cn(
-                  "flex-1",
-                  type === 'delete' && "bg-red-600 hover:bg-red-700"
-                )}
-              >
-                {type === 'create' && 'Create Items'}
-                {type === 'edit' && 'Save Changes'}
-                {type === 'process' && `Process ${processType}`}
-                {type === 'delete' && 'Delete Items'}
-              </Button>
+            {/* Enhanced Action Buttons */}
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-5 border border-gray-200 shadow-sm">
+              {/* Progress Indicator for Process Forms */}
+              {type === 'process' && (
+                <div className="mb-5">
+                  <div className="flex items-center justify-between text-sm mb-3">
+                    <div className="flex items-center space-x-2">
+                      {hasMixed ? (
+                        <>
+                          <Wrench className="w-4 h-4 text-blue-600" />
+                          <Package className="w-4 h-4 text-purple-600" />
+                        </>
+                      ) : processType === 'borrow' ? (
+                        <Wrench className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <Package className="w-4 h-4 text-gray-600" />
+                      )}
+                      <span className="font-medium text-gray-700">
+                        {hasMixed
+                          ? 'Mixed Transaction Progress'
+                          : processType === 'borrow' ? 'Borrowing Progress' : 'Consumption Progress'
+                        }
+                      </span>
+                    </div>
+                    <span className="font-semibold text-gray-900">
+                      {hasMixed
+                        ? `${selectedTools.length} tools, ${selectedMaterials.length} materials`
+                        : processType === 'borrow'
+                        ? `${Object.values(selectedUnits).flat().length} units selected`
+                        : `${Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length}/${selectedItems.length} configured`
+                      }
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                    <div
+                      className={cn(
+                        "h-3 rounded-full transition-all duration-500 shadow-sm",
+                        hasMixed
+                          ? "bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500"
+                          : processType === 'borrow'
+                          ? "bg-gradient-to-r from-blue-400 to-blue-500"
+                          : "bg-gradient-to-r from-purple-400 to-purple-500"
+                      )}
+                      style={{
+                        width: hasMixed
+                          ? (() => {
+                              const borrowComplete = borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose && Object.values(selectedUnits).flat().length > 0;
+                              const consumeComplete = consumeForm.consumerName && consumeForm.purpose && Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0;
+                              const completionCount = (borrowComplete ? 1 : 0) + (consumeComplete ? 1 : 0);
+                              return `${(completionCount / 2) * 100}%`;
+                            })()
+                          : processType === 'borrow'
+                          ? `${Math.min(100, (Object.values(selectedUnits).flat().length / Math.max(1, selectedItems.reduce((sum, item) => sum + (item.units?.filter(u => u.isAvailable)?.length || 0), 0))) * 100)}%`
+                          : `${(Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length / Math.max(1, selectedItems.length)) * 100}%`
+                      }}
+                    ></div>
+                  </div>
+
+                  {/* Form Validation Status */}
+                  <div className="flex justify-between mt-2 text-xs">
+                    {hasMixed ? (
+                      <>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose && Object.values(selectedUnits).flat().length > 0 ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose && Object.values(selectedUnits).flat().length > 0 ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Borrow Complete</span>
+                        </span>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          consumeForm.consumerName && consumeForm.purpose && Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0 ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {consumeForm.consumerName && consumeForm.purpose && Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0 ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Consume Complete</span>
+                        </span>
+                      </>
+                    ) : processType === 'borrow' ? (
+                      <>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Form Complete</span>
+                        </span>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          Object.values(selectedUnits).flat().length > 0 ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {Object.values(selectedUnits).flat().length > 0 ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Units Selected</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          consumeForm.consumerName && consumeForm.purpose ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {consumeForm.consumerName && consumeForm.purpose ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Form Complete</span>
+                        </span>
+                        <span className={cn(
+                          "flex items-center space-x-1",
+                          Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length === selectedItems.length ? "text-green-600" : "text-gray-500"
+                        )}>
+                          {Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length === selectedItems.length ?
+                            <CheckCircle className="w-3 h-3" /> :
+                            <div className="w-3 h-3 border border-gray-300 rounded-full" />
+                          }
+                          <span>Quantities Set</span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1 hover:bg-white hover:shadow-sm transition-all duration-200"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className={cn(
+                    "flex-1 transition-all duration-200 shadow-sm hover:shadow-md",
+                    type === 'delete'
+                      ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
+                      : type === 'process' && processType === 'borrow'
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                      : type === 'process' && processType === 'consume'
+                      ? "bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white"
+                      : "bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white"
+                  )}
+                  disabled={
+                    type === 'process' && hasMixed
+                      ? // For mixed process, both forms must be complete
+                        (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose || Object.values(selectedUnits).flat().length === 0) ||
+                        (!consumeForm.consumerName || !consumeForm.purpose || Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length === 0)
+                      : type === 'process' && processType === 'borrow'
+                      ? !borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose || Object.values(selectedUnits).flat().length === 0
+                      : type === 'process' && processType === 'consume'
+                      ? !consumeForm.consumerName || !consumeForm.purpose || Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length === 0
+                      : false
+                  }
+                >
+                  {type === 'create' && (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Items
+                    </>
+                  )}
+                  {type === 'edit' && (
+                    <>
+                      <Package className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                  {type === 'process' && hasMixed && (
+                    <>
+                      <Wrench className="w-4 h-4 mr-1" />
+                      <Package className="w-4 h-4 mr-2" />
+                      Process Mixed Transaction
+                    </>
+                  )}
+                  {type === 'process' && !hasMixed && processType === 'borrow' && (
+                    <>
+                      <Wrench className="w-4 h-4 mr-2" />
+                      Process Borrowing
+                    </>
+                  )}
+                  {type === 'process' && !hasMixed && processType === 'consume' && (
+                    <>
+                      <Package className="w-4 h-4 mr-2" />
+                      Process Consumption
+                    </>
+                  )}
+                  {type === 'delete' && (
+                    <>
+                      <AlertTriangle className="w-4 h-4 mr-2" />
+                      Delete Items
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
+          </div>
         </div>
       </div>
     </div>

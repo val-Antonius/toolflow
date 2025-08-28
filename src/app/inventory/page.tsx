@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InventorySidebar } from '@/components/ui/inventory-sidebar';
+
 import { cn } from '@/lib/utils';
 import {
   Package,
@@ -197,9 +198,10 @@ export default function Inventory() {
       }
     });
 
-  const allowedNames = ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'];
-  const toolCategories = categories.filter((cat: any) => cat.type === 'TOOL' && allowedNames.includes(cat.name));
-  const materialCategories = categories.filter((cat: any) => cat.type === 'MATERIAL' && allowedNames.includes(cat.name));
+  const allowedToolNames = ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'];
+  const allowedMaterialNames = ['Material Lapangan', 'Material Kantor', 'Material Jaringan'];
+  const toolCategories = categories.filter((cat: any) => cat.type === 'TOOL' && allowedToolNames.includes(cat.name));
+  const materialCategories = categories.filter((cat: any) => cat.type === 'MATERIAL' && allowedMaterialNames.includes(cat.name));
 
   // Load data on component mount and search change
   useEffect(() => {
@@ -680,7 +682,9 @@ export default function Inventory() {
                             onChange={() => toggleItemSelection(tool.id)}
                           />
                         </td>
-                        <td className="py-4 px-4 text-sm font-mono">{tool.id}</td>
+                        <td className="py-4 px-4 text-sm font-mono">
+                          {(tool as any).displayId || tool.id.slice(0, 8) + '...'}
+                        </td>
                         <td className="py-4 px-4 text-sm font-medium">{tool.name}</td>
                         <td className="py-4 px-4 text-sm capitalize">{tool.category.name}</td>
                         <td className="py-4 px-4">
@@ -989,7 +993,9 @@ export default function Inventory() {
                             onChange={() => toggleItemSelection(material.id)}
                           />
                         </td>
-                        <td className="py-4 px-4 text-sm font-mono">{material.id}</td>
+                        <td className="py-4 px-4 text-sm font-mono">
+                          {(material as any).displayId || material.id.slice(0, 8) + '...'}
+                        </td>
                         <td className="py-4 px-4 text-sm font-medium">{material.name}</td>
                         <td className="py-4 px-4 text-sm capitalize">{material.category.name}</td>
                         <td className="py-4 px-4 text-sm font-medium">

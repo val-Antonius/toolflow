@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CreateMaterialSchema } from '@/lib/validations'
+
 import {
   successResponse,
   errorResponse,
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
       where: { id: data.categoryId },
     })
 
-    if (!category || !['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'].includes(category.name)) {
+    if (!category || !['Material Lapangan', 'Material Kantor', 'Material Jaringan'].includes(category.name)) {
       return errorResponse('Category not found or not allowed', 404)
     }
 

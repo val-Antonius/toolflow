@@ -28,6 +28,7 @@ model Category {
 
 model Tool {
   id                String    @id @default(cuid())
+  displayId         String?   @unique
   name              String
   categoryId        String
   totalQuantity     Int       @default(1)
@@ -47,6 +48,7 @@ model Tool {
 
   @@index([categoryId])
   @@index([name])
+  @@index([displayId])
   @@map("tools")
 }
 
@@ -90,6 +92,7 @@ model BorrowingItemUnit {
 
 model Material {
   id                String   @id @default(cuid())
+  displayId         String?  @unique
   name              String
   categoryId        String
   currentQuantity   Decimal  @db.Decimal(10, 3)
@@ -108,11 +111,13 @@ model Material {
 
   @@index([categoryId])
   @@index([name])
+  @@index([displayId])
   @@map("materials")
 }
 
 model BorrowingTransaction {
   id           String                     @id @default(cuid())
+  displayId    String?                    @unique
   borrowerName String
   borrowDate   DateTime                   @default(now())
   dueDate      DateTime
@@ -128,6 +133,7 @@ model BorrowingTransaction {
 
   @@index([status])
   @@index([dueDate])
+  @@index([displayId])
   @@map("borrowing_transactions")
 }
 
@@ -155,6 +161,7 @@ model BorrowingItem {
 
 model ConsumptionTransaction {
   id              String   @id @default(cuid())
+  displayId       String?  @unique
   consumerName    String
   consumptionDate DateTime @default(now())
   purpose         String
@@ -168,6 +175,7 @@ model ConsumptionTransaction {
   consumptionItems ConsumptionItem[]
 
   @@index([consumptionDate])
+  @@index([displayId])
   @@map("consumption_transactions")
 }
 

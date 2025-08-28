@@ -45,6 +45,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               <span className="font-bold text-lg">ToolTrack</span>
             </div>
           )}
+          {isCollapsed && (
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -64,17 +69,17 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <Link
               key={item.path}
               href={item.path}
+              title={isCollapsed ? item.label : undefined}
               className={cn(
-                "flex items-center space-x-3 px-3 py-2 rounded-lg transition-all-smooth hover-lift group",
-                isActive 
-                  ? "bg-primary text-white shadow-lg" 
+                "flex items-center px-3 py-3 rounded-lg transition-all-smooth hover-lift group",
+                isActive
+                  ? "bg-primary text-white shadow-lg"
                   : "hover:bg-white/10 text-foreground",
-                isCollapsed ? "justify-center" : ""
+                isCollapsed ? "justify-center" : "space-x-3"
               )}
             >
               <item.icon className={cn(
-                "transition-all-smooth",
-                isCollapsed ? "w-6 h-6" : "w-5 h-5",
+                "w-5 h-5 transition-all-smooth",
                 isActive ? "" : "group-hover:scale-110"
               )} />
               {!isCollapsed && (

@@ -172,13 +172,16 @@ export const reportConfigurations: ReportTypeConfig[] = [
       }
     ],
     columns: [
-      { 
-        key: 'id', 
-        label: 'ID', 
-        type: 'text', 
-        sortable: true, 
+      {
+        key: 'id',
+        label: 'ID',
+        type: 'text',
+        sortable: true,
         width: '100px',
-        render: (value) => <span className="font-mono text-xs">{value.slice(0, 8)}...</span>
+        render: (value, row) => {
+          const displayId = (row as any).displayId;
+          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+        }
       },
       { key: 'borrower', label: 'Borrower', type: 'text', sortable: true, width: '150px' },
       { 
@@ -259,13 +262,16 @@ export const reportConfigurations: ReportTypeConfig[] = [
       }
     ],
     columns: [
-      { 
-        key: 'id', 
-        label: 'ID', 
-        type: 'text', 
-        sortable: true, 
+      {
+        key: 'id',
+        label: 'ID',
+        type: 'text',
+        sortable: true,
         width: '100px',
-        render: (value) => <span className="font-mono text-xs">{value.slice(0, 8)}...</span>
+        render: (value, row) => {
+          const displayId = (row as any).displayId;
+          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+        }
       },
       { key: 'consumer', label: 'Consumer', type: 'text', sortable: true, width: '150px' },
       { 
@@ -356,7 +362,10 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'text',
         sortable: true,
         width: '100px',
-        render: (value) => <span className="font-mono text-xs">{value.slice(0, 8)}...</span>
+        render: (value, row) => {
+          const displayId = (row as any).displayId;
+          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+        }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
       { key: 'category', label: 'Category', type: 'text', sortable: true, width: '120px' },
@@ -440,7 +449,10 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'text',
         sortable: true,
         width: '100px',
-        render: (value) => <span className="font-mono text-xs">{value.slice(0, 8)}...</span>
+        render: (value, row) => {
+          const displayId = (row as any).displayId;
+          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+        }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
       { key: 'category', label: 'Category', type: 'text', sortable: true, width: '120px' },
@@ -528,7 +540,10 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'text',
         sortable: true,
         width: '100px',
-        render: (value) => <span className="font-mono text-xs">{value.slice(0, 8)}...</span>
+        render: (value, row) => {
+          const displayId = (row as any).displayId;
+          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+        }
       },
       {
         key: 'type',
