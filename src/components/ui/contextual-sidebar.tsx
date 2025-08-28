@@ -10,6 +10,7 @@ import { X, Calendar, Package, User, CheckCircle, AlertTriangle } from 'lucide-r
 
 interface ToolUnit {
   id: string;
+  displayId?: string;
   unitNumber: number;
   condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   isAvailable: boolean;

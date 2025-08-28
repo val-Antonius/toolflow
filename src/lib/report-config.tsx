@@ -385,7 +385,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '120px',
         render: (value, row) => (
           <span className="font-mono text-sm">
-            {row.available}/{row.total}
+            {row.available || row.availableQuantity || 0}/{row.total || row.totalQuantity || 0}
           </span>
         )
       },

@@ -12,6 +12,7 @@ import {
   buildSortOrder,
   getPaginationParams
 } from '@/lib/api-utils'
+import { generateToolDisplayId, generateUnitDisplayId } from '@/lib/display-id-utils'
 
 // GET /api/tools - Get all tools with optional filtering
 export async function GET(request: NextRequest) {
@@ -89,11 +90,16 @@ export async function GET(request: NextRequest) {
       prisma.tool.count({ where }),
     ])
 
-    // Add computed fields and filter for borrowed if needed
+    // Add computed fields and unit display IDs
     let toolsWithStatus = tools.map(tool => ({
       ...tool,
       hasActiveBorrowing: tool._count.borrowingItems > 0,
       borrowedQuantity: tool.totalQuantity - tool.availableQuantity,
+      // Add displayId to each unit
+      units: tool.units?.map(unit => ({
+        ...unit,
+        displayId: tool.displayId ? generateUnitDisplayId(tool.displayId, unit.unitNumber) : `U${unit.unitNumber.toString().padStart(2, '0')}`
+      })) || []
     }))
 
     // Apply borrowed filter if specified (since we can't do it in Prisma where clause)
@@ -138,10 +144,14 @@ export async function POST(request: NextRequest) {
       return errorResponse('Category must be of type TOOL', 400)
     }
 
+    // Generate display ID
+    const displayId = await generateToolDisplayId();
+
     // Create tool with units
     const tool = await prisma.$transaction(async (tx) => {
       const createdTool = await tx.tool.create({
         data: {
+          displayId,
           name: data.name,
           categoryId: data.categoryId,
           totalQuantity: data.totalQuantity,
@@ -210,7 +220,12 @@ export async function POST(request: NextRequest) {
     return successResponse({
       ...completeToolData,
       hasActiveBorrowing: completeToolData?._count.borrowingItems > 0,
-      borrowedQuantity: completeToolData?.totalQuantity - completeToolData?.availableQuantity,
+      borrowedQuantity: (completeToolData?.totalQuantity || 0) - (completeToolData?.availableQuantity || 0),
+      // Add displayId to each unit in response
+      units: completeToolData?.units?.map(unit => ({
+        ...unit,
+        displayId: completeToolData.displayId ? generateUnitDisplayId(completeToolData.displayId, unit.unitNumber) : `U${unit.unitNumber.toString().padStart(2, '0')}`
+      })) || []
     }, 'Tool created successfully')
   } catch (error) {
     console.error('Error creating tool:', error)

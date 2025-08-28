@@ -27,12 +27,16 @@ import {
 // Types
 interface ToolUnit {
   id: string;
+  displayId?: string;
+  unitNumber: number;
   condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   isAvailable: boolean;
+  notes?: string;
 }
 
 interface Tool {
   id: string;
+  displayId?: string;
   name: string;
   type: 'tool';
   category: {
@@ -52,6 +56,7 @@ interface Tool {
 
 interface Material {
   id: string;
+  displayId?: string;
   name: string;
   type: 'material';
   category: {
@@ -93,8 +98,11 @@ const fetchTools = async (searchQuery: string = ''): Promise<Tool[]> => {
         // Ensure units are properly typed
         units: tool.units?.map((unit: any) => ({
           id: unit.id,
+          displayId: unit.displayId,
+          unitNumber: unit.unitNumber,
           condition: unit.condition,
-          isAvailable: unit.isAvailable
+          isAvailable: unit.isAvailable,
+          notes: unit.notes
         }))
       }));
     }
@@ -683,7 +691,7 @@ export default function Inventory() {
                           />
                         </td>
                         <td className="py-4 px-4 text-sm font-mono">
-                          {(tool as any).displayId || tool.id.slice(0, 8) + '...'}
+                          {tool.displayId || tool.id.slice(0, 8) + '...'}
                         </td>
                         <td className="py-4 px-4 text-sm font-medium">{tool.name}</td>
                         <td className="py-4 px-4 text-sm capitalize">{tool.category.name}</td>
@@ -994,7 +1002,7 @@ export default function Inventory() {
                           />
                         </td>
                         <td className="py-4 px-4 text-sm font-mono">
-                          {(material as any).displayId || material.id.slice(0, 8) + '...'}
+                          {material.displayId || material.id.slice(0, 8) + '...'}
                         </td>
                         <td className="py-4 px-4 text-sm font-medium">{material.name}</td>
                         <td className="py-4 px-4 text-sm capitalize">{material.category.name}</td>

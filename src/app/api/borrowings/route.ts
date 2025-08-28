@@ -13,6 +13,7 @@ import {
   getPaginationParams,
   checkToolAvailability
 } from '@/lib/api-utils'
+import { generateBorrowingDisplayId } from '@/lib/display-id-utils'
 
 // Type for tool with units
 type ToolWithUnits = {
@@ -116,10 +117,14 @@ export async function POST(request: NextRequest) {
 
     const { borrowerName, dueDate, purpose, notes, items } = validation.data
 
+    // Generate display ID
+    const displayId = await generateBorrowingDisplayId();
+
     // Create borrowing transaction in a transaction
     const borrowing = await prisma.$transaction(async (tx) => {
       const newBorrowing = await tx.borrowingTransaction.create({
         data: {
+          displayId,
           borrowerName,
           dueDate: new Date(dueDate),
           purpose,

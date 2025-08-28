@@ -10,6 +10,7 @@ import { Package, Edit, CheckCircle } from 'lucide-react';
 
 interface ToolUnit {
   id: string;
+  displayId?: string;
   condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   isAvailable: boolean;
   unitNumber?: number;
@@ -18,6 +19,7 @@ interface ToolUnit {
 
 interface Unit {
   id: string;
+  displayId?: string;
   condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   isAvailable: boolean;
   unitNumber?: number;
@@ -198,7 +200,7 @@ export function ConditionPicker({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <Badge className={cn("text-xs", getConditionColor(unit.condition))}>
-                    Unit {unit.unitNumber || 1}
+                    {(unit as any).displayId || `Unit ${unit.unitNumber || 1}`}
                   </Badge>
                   <span className="text-sm font-medium">
                     Current: {unit.condition}

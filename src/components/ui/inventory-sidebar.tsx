@@ -30,6 +30,7 @@ interface InventoryItem {
   condition?: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
   units?: Array<{
     id: string;
+    displayId?: string;
     unitNumber: number;
     condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
     isAvailable: boolean;
@@ -1464,7 +1465,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <Label htmlFor={`unit-${unit.id}`} className="text-xs font-medium text-gray-900 cursor-pointer">
-                                  #{unit.unitNumber}
+                                  {(unit as any).displayId || `#${unit.unitNumber}`}
                                 </Label>
                                 <Badge
                                   className={cn(

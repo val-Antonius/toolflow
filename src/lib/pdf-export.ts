@@ -95,52 +95,148 @@ export class PDFExporter {
   private addFiltersSection(filters: { [key: string]: any }) {
     if (!filters || Object.keys(filters).length === 0) return;
 
+    // Filter section header with background
+    this.doc.setFillColor(248, 249, 250); // Light gray background
+    this.doc.rect(this.margin - 5, this.currentY - 3, this.pageWidth - (this.margin * 2) + 10, 20, 'F');
+
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('Applied Filters:', this.margin, this.currentY);
-    this.currentY += 6;
+    this.doc.setTextColor(52, 58, 64); // Dark gray
+    this.doc.text('Applied Filters', this.margin, this.currentY + 5);
+    this.currentY += 15;
 
     this.doc.setFontSize(10);
     this.doc.setFont('helvetica', 'normal');
+    this.doc.setTextColor(73, 80, 87); // Medium gray
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value && value !== 'all' && value !== '') {
-        let displayValue = value;
-        
-        // Format different types of values
-        if (Array.isArray(value)) {
-          displayValue = value.join(', ');
-        } else if (typeof value === 'object' && value.from && value.to) {
-          displayValue = `${value.from} to ${value.to}`;
-        }
+    const filterEntries = Object.entries(filters).filter(([key, value]) =>
+      value && value !== 'all' && value !== '' && key !== 'categoryNames'
+    );
 
-        const filterText = `${this.formatFilterKey(key)}: ${displayValue}`;
-        this.doc.text(filterText, this.margin + 5, this.currentY);
-        this.currentY += 4;
+    if (filterEntries.length === 0) {
+      this.doc.text('No filters applied', this.margin + 5, this.currentY);
+      this.currentY += 6;
+    } else {
+      filterEntries.forEach(([key, value]) => {
+        const displayValue = this.formatFilterValue(key, value, filters);
+        const filterLabel = this.formatFilterKey(key);
+
+        // Filter label in bold
+        this.doc.setFont('helvetica', 'bold');
+        this.doc.text(`${filterLabel}:`, this.margin + 5, this.currentY);
+
+        // Filter value in normal weight
+        this.doc.setFont('helvetica', 'normal');
+        const labelWidth = this.doc.getTextWidth(`${filterLabel}: `);
+        this.doc.text(displayValue, this.margin + 5 + labelWidth, this.currentY);
+
+        this.currentY += 5;
+      });
+    }
+
+    this.doc.setTextColor(0, 0, 0); // Reset to black
+    this.currentY += 10;
+  }
+
+  private formatFilterValue(key: string, value: any, allFilters?: any): string {
+    // Handle date ranges
+    if (typeof value === 'object' && value.from && value.to) {
+      const fromDate = new Date(value.from).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      const toDate = new Date(value.to).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+      return `${fromDate} - ${toDate}`;
+    }
+
+    // Handle category filters - use categoryNames if available
+    if (key === 'categoryId' || key === 'category') {
+      if (allFilters?.categoryNames && Array.isArray(allFilters.categoryNames)) {
+        return allFilters.categoryNames.join(', ');
       }
-    });
+    }
 
-    this.currentY += 8;
+    // Handle arrays (like categories)
+    if (Array.isArray(value)) {
+      return value.map(item => {
+        // If it's a category object with name, use the name
+        if (typeof item === 'object' && item.name) {
+          return item.name;
+        }
+        // If it's just a string, use it directly
+        return String(item);
+      }).join(', ');
+    }
+
+    // Handle single date values
+    if (key.toLowerCase().includes('date') && value) {
+      try {
+        return new Date(value).toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      } catch {
+        return String(value);
+      }
+    }
+
+    // Handle status values with proper formatting
+    if (key.toLowerCase().includes('status')) {
+      if (Array.isArray(value)) {
+        return value.map(status =>
+          String(status).replace(/([A-Z])/g, ' $1').trim()
+        ).join(', ');
+      }
+      return String(value).replace(/([A-Z])/g, ' $1').trim();
+    }
+
+    return String(value);
   }
 
   private formatFilterKey(key: string): string {
-    return key
+    const keyMappings: { [key: string]: string } = {
+      'dateRange': 'Date Range',
+      'categoryId': 'Category',
+      'category': 'Category',
+      'status': 'Status',
+      'borrowerName': 'Borrower',
+      'consumerName': 'Consumer',
+      'actorName': 'Person',
+      'borrower': 'Borrower',
+      'consumer': 'Consumer',
+      'person': 'Person',
+      'itemType': 'Item Type',
+      'stockStatus': 'Stock Status',
+      'transactionType': 'Transaction Type',
+      'projectName': 'Project',
+      'purpose': 'Purpose'
+    };
+
+    return keyMappings[key] || key
       .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
-      .replace('Date Range', 'Date Range')
-      .replace('Category', 'Category')
-      .replace('Status', 'Status');
+      .replace(/^./, str => str.toUpperCase());
   }
 
   private addSummarySection(summary: { [key: string]: any }) {
     if (!summary || Object.keys(summary).length === 0) return;
 
+    // Summary section header with background
+    this.doc.setFillColor(233, 236, 239); // Light blue-gray background
+    this.doc.rect(this.margin - 5, this.currentY - 3, this.pageWidth - (this.margin * 2) + 10, 20, 'F');
+
     this.doc.setFontSize(12);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text('Summary:', this.margin, this.currentY);
-    this.currentY += 8;
+    this.doc.setTextColor(52, 58, 64);
+    this.doc.text('Report Summary', this.margin, this.currentY + 5);
+    this.currentY += 18;
 
-    // Create summary table
+    // Create professional summary table
     const summaryData = Object.entries(summary).map(([key, value]) => [
       this.formatFilterKey(key),
       this.formatSummaryValue(value)
@@ -152,21 +248,42 @@ export class PDFExporter {
       body: summaryData,
       theme: 'grid',
       headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: 255,
-        fontStyle: 'bold'
+        fillColor: [30, 58, 138], // Professional dark blue
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 11,
+        cellPadding: { top: 5, right: 8, bottom: 5, left: 8 }
       },
-      styles: {
+      bodyStyles: {
         fontSize: 10,
-        cellPadding: 3
+        cellPadding: { top: 4, right: 8, bottom: 4, left: 8 },
+        textColor: [33, 37, 41],
+        lineColor: [222, 226, 230],
+        lineWidth: 0.5
+      },
+      alternateRowStyles: {
+        fillColor: [248, 249, 250]
       },
       columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 40, halign: 'right' }
+        0: {
+          cellWidth: 80,
+          halign: 'left',
+          fontStyle: 'bold'
+        },
+        1: {
+          cellWidth: 60,
+          halign: 'right',
+          fontStyle: 'normal'
+        }
+      },
+      styles: {
+        lineColor: [222, 226, 230],
+        lineWidth: 0.5
       },
       margin: { left: this.margin }
     });
 
+    this.doc.setTextColor(0, 0, 0); // Reset color
     this.currentY = (this.doc as any).lastAutoTable.finalY + 15;
   }
 
@@ -200,36 +317,60 @@ export class PDFExporter {
       startY: this.currentY,
       head: [headers],
       body: tableData,
-      theme: 'striped',
+      theme: 'grid',
       headStyles: {
-        fillColor: [52, 73, 94],
-        textColor: 255,
+        fillColor: [30, 58, 138], // Professional dark blue
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 10
+        fontSize: 11,
+        cellPadding: { top: 6, right: 4, bottom: 6, left: 4 },
+        halign: 'center',
+        valign: 'middle'
       },
       bodyStyles: {
         fontSize: 9,
-        cellPadding: 2
+        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+        textColor: [33, 37, 41], // Dark gray for better readability
+        lineColor: [222, 226, 230], // Light gray borders
+        lineWidth: 0.5
       },
       alternateRowStyles: {
-        fillColor: [245, 245, 245]
+        fillColor: [248, 249, 250] // Very light gray for alternating rows
       },
       columnStyles: this.getColumnStyles(columns, columnWidths),
       styles: {
         overflow: 'linebreak',
-        cellWidth: 'wrap'
+        cellWidth: 'wrap',
+        font: 'helvetica',
+        lineColor: [222, 226, 230],
+        lineWidth: 0.5
       },
       margin: { left: this.margin, right: this.margin },
       didDrawPage: (data) => {
-        // Add page numbers
+        // Professional page footer
         const pageCount = this.doc.getNumberOfPages();
         const currentPage = data.pageNumber;
-        
-        this.doc.setFontSize(8);
+
+        // Footer line
+        this.doc.setDrawColor(222, 226, 230);
+        this.doc.setLineWidth(0.5);
+        this.doc.line(this.margin, this.pageHeight - 20, this.pageWidth - this.margin, this.pageHeight - 20);
+
+        // Page number
+        this.doc.setFontSize(9);
+        this.doc.setFont('helvetica', 'normal');
+        this.doc.setTextColor(108, 117, 125); // Muted gray
         this.doc.text(
           `Page ${currentPage} of ${pageCount}`,
-          this.pageWidth - this.margin - 20,
-          this.pageHeight - 10
+          this.pageWidth - this.margin - 25,
+          this.pageHeight - 12
+        );
+
+        // Company footer
+        this.doc.text(
+          'ToolFlow Management System',
+          this.margin,
+          this.pageHeight - 12
         );
       }
     });
@@ -280,12 +421,37 @@ export class PDFExporter {
 
   private getColumnStyles(columns: ReportColumn[], widths: number[]): { [key: number]: any } {
     const styles: { [key: number]: any } = {};
-    
+
     columns.forEach((col, index) => {
-      styles[index] = {
+      const baseStyle = {
         cellWidth: widths[index],
-        halign: col.type === 'number' || col.type === 'currency' ? 'right' : 'left'
+        valign: 'middle'
       };
+
+      // Set alignment based on column type
+      switch (col.type) {
+        case 'number':
+        case 'currency':
+          baseStyle.halign = 'right';
+          baseStyle.fontStyle = 'normal';
+          break;
+        case 'date':
+          baseStyle.halign = 'center';
+          baseStyle.fontStyle = 'normal';
+          break;
+        case 'status':
+        case 'badge':
+          baseStyle.halign = 'center';
+          baseStyle.fontStyle = 'bold';
+          break;
+        case 'text':
+        default:
+          baseStyle.halign = col.key === 'id' ? 'center' : 'left';
+          baseStyle.fontStyle = col.key === 'id' ? 'bold' : 'normal';
+          break;
+      }
+
+      styles[index] = baseStyle;
     });
 
     return styles;
@@ -322,7 +488,17 @@ export class PDFExporter {
         return String(value).toUpperCase();
       
       case 'list':
-        return Array.isArray(value) ? value.join(', ') : String(value);
+        if (!Array.isArray(value)) return String(value);
+        return value.map(item => {
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object' && item !== null) {
+            // Extract meaningful text from item objects
+            return item.name || item.toolName || item.materialName ||
+                   `${item.toolName || item.materialName || 'Item'} (${item.quantity || 1}x)` ||
+                   String(item);
+          }
+          return String(item);
+        }).join(', ');
       
       default:
         return String(value);

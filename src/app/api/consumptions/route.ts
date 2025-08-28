@@ -12,6 +12,7 @@ import {
   checkMaterialStock,
   validateRequest
 } from '@/lib/api-utils'
+import { generateConsumptionDisplayId } from '@/lib/display-id-utils'
 
 // GET /api/consumptions - Get all consumption transactions
 export async function GET(request: NextRequest) {
@@ -111,11 +112,15 @@ export async function POST(request: NextRequest) {
       return sum + itemTotal
     }, 0)
 
+    // Generate display ID
+    const displayId = await generateConsumptionDisplayId();
+
     // Create consumption transaction
     const consumption = await prisma.$transaction(async (tx) => {
       // Create consumption transaction
       const newConsumption = await tx.consumptionTransaction.create({
         data: {
+          displayId,
           consumerName,
           purpose,
           projectName,

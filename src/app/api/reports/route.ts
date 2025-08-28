@@ -104,6 +104,16 @@ export async function POST(request: NextRequest) {
     const summaryData = reportData.data || reportData
     summary = generateReportSummary(type, summaryData)
 
+    // Get category names for better filter display
+    let categoryNames: string[] = [];
+    if (processedCategoryIds.length > 0) {
+      const categories = await prisma.category.findMany({
+        where: { id: { in: processedCategoryIds } },
+        select: { id: true, name: true }
+      });
+      categoryNames = categories.map(cat => cat.name);
+    }
+
     const response = {
       type,
       dateRange: { from: startDate, to: endDate },
@@ -111,6 +121,7 @@ export async function POST(request: NextRequest) {
         borrowerName,
         consumerName,
         categoryId,
+        categoryNames, // Add category names for better display
         status,
         itemType,
         page,
@@ -210,7 +221,9 @@ async function generateBorrowingReport(
   ])
 
   const data = borrowings.map(borrowing => ({
-    id: borrowing.id,
+    id: borrowing.displayId || borrowing.id,
+    displayId: borrowing.displayId,
+    originalId: borrowing.id,
     borrower: borrowing.borrowerName,
     borrowDate: borrowing.borrowDate,
     dueDate: borrowing.dueDate,
@@ -315,7 +328,9 @@ async function generateConsumptionReport(
   ])
 
   const data = consumptions.map(consumption => ({
-    id: consumption.id,
+    id: consumption.displayId || consumption.id,
+    displayId: consumption.displayId,
+    originalId: consumption.id,
     consumer: consumption.consumerName,
     consumptionDate: consumption.consumptionDate,
     purpose: consumption.purpose,
@@ -589,7 +604,9 @@ async function generateToolsReport(
 
   return {
     data: tools.map(tool => ({
-      id: tool.id,
+      id: tool.displayId || tool.id,
+      displayId: tool.displayId,
+      originalId: tool.id,
       name: tool.name,
       category: tool.category.name,
       condition: 'GOOD', // Default condition since Tool model doesn't have condition field
@@ -666,7 +683,9 @@ async function generateMaterialReport(
 
   return {
     data: materials.map(material => ({
-      id: material.id,
+      id: material.displayId || material.id,
+      displayId: material.displayId,
+      originalId: material.id,
       name: material.name,
       category: material.category.name,
       currentQuantity: Number(material.currentQuantity),
@@ -734,7 +753,9 @@ async function generateHistoryReport(
     })
 
     transactions.push(...completedBorrowings.map(borrowing => ({
-      id: borrowing.id,
+      id: borrowing.displayId || borrowing.id,
+      displayId: borrowing.displayId,
+      originalId: borrowing.id,
       type: 'borrowing',
       date: borrowing.returnDate,
       person: borrowing.borrowerName,
@@ -782,7 +803,9 @@ async function generateHistoryReport(
     })
 
     transactions.push(...consumptions.map(consumption => ({
-      id: consumption.id,
+      id: consumption.displayId || consumption.id,
+      displayId: consumption.displayId,
+      originalId: consumption.id,
       type: 'consumption',
       date: consumption.consumptionDate,
       person: consumption.consumerName,
@@ -861,7 +884,9 @@ async function generateActivityReport(
 
   return {
     data: activities.map(activity => ({
-      id: activity.id,
+      id: activity.displayId || activity.id,
+      displayId: activity.displayId,
+      originalId: activity.id,
       entityType: activity.entityType,
       entityId: activity.entityId,
       action: activity.action,

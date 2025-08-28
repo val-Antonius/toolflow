@@ -12,6 +12,7 @@ import {
   buildSortOrder,
   getPaginationParams
 } from '@/lib/api-utils'
+import { generateMaterialDisplayId } from '@/lib/display-id-utils'
 
 // GET /api/materials - Get all materials with optional filtering
 export async function GET(request: NextRequest) {
@@ -130,9 +131,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('Category must be of type MATERIAL', 400)
     }
 
+    // Generate display ID
+    const displayId = await generateMaterialDisplayId();
+
     // Create material
     const material = await prisma.material.create({
       data: {
+        displayId,
         name: data.name,
         categoryId: data.categoryId,
         currentQuantity: data.currentQuantity,
