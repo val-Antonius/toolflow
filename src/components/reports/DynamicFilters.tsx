@@ -92,14 +92,13 @@ export function DynamicFilters({
     }
 
     const commonProps = {
-      key: filter.key,
       className: "space-y-2"
     };
 
     switch (filter.type) {
       case 'select':
         return (
-          <div {...commonProps}>
+          <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <Select
               value={filters[filter.key] || 'all'}
@@ -122,7 +121,7 @@ export function DynamicFilters({
       case 'multiselect':
         const selectedValues = multiSelectState[filter.key] || [];
         return (
-          <div {...commonProps}>
+          <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <div className="space-y-2">
               <Select
@@ -168,7 +167,7 @@ export function DynamicFilters({
 
       case 'daterange':
         return (
-          <div {...commonProps}>
+          <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <DateRangePicker
               value={filters[filter.key] || { from: '', to: '' }}
@@ -179,7 +178,7 @@ export function DynamicFilters({
 
       case 'text':
         return (
-          <div {...commonProps}>
+          <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <Input
               type="text"
@@ -193,7 +192,7 @@ export function DynamicFilters({
 
       case 'number':
         return (
-          <div {...commonProps}>
+          <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <Input
               type="number"

@@ -314,10 +314,7 @@ async function generateConsumptionReport(
                 category: { select: { name: true } }
               }
             }
-          },
-          where: categoryId && categoryId !== 'all' ? {
-            material: { categoryId }
-          } : undefined
+          }
         }
       },
       orderBy,
@@ -884,9 +881,7 @@ async function generateActivityReport(
 
   return {
     data: activities.map(activity => ({
-      id: activity.displayId || activity.id,
-      displayId: activity.displayId,
-      originalId: activity.id,
+      id: activity.id,
       entityType: activity.entityType,
       entityId: activity.entityId,
       action: activity.action,
