@@ -36,10 +36,20 @@ export function DateTimePicker({
   const handleInputClick = () => {
     if (!disabled) {
       setIsOpen(true);
-      // Focus the hidden datetime-local input to trigger native picker
       if (inputRef.current) {
         inputRef.current.focus();
-        inputRef.current.showPicker?.();
+        // Try the modern showPicker API first
+        try {
+          if (inputRef.current.showPicker) {
+            inputRef.current.showPicker();
+          } else {
+            // Fallback to click() for broader browser support
+            inputRef.current.click();
+          }
+        } catch (e) {
+          // If showPicker fails, ensure the input is still clickable
+          inputRef.current.click();
+        }
       }
     }
   };
@@ -97,7 +107,7 @@ export function DateTimePicker({
       )}
       
       <div className="relative">
-        {/* Hidden native datetime-local input */}
+        {/* Native datetime-local input */}
         <input
           ref={inputRef}
           id={id}
@@ -108,8 +118,17 @@ export function DateTimePicker({
           max={max}
           required={required}
           disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          style={{ colorScheme: 'light' }}
+          className={cn(
+            "absolute inset-0 w-full h-full cursor-pointer",
+            "opacity-0 focus:opacity-0",
+            disabled && "cursor-not-allowed"
+          )}
+          style={{ WebkitAppearance: 'none', appearance: 'none' }}
+          aria-label={label || "Date and time picker"}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => {
+            setTimeout(() => setIsOpen(false), 200);
+          }}
         />
         
         {/* Custom styled display */}
@@ -118,6 +137,8 @@ export function DateTimePicker({
           className={cn(
             "relative flex items-center w-full px-3 py-2 text-sm border rounded-md transition-all duration-200",
             "bg-white hover:bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500",
+            disabled && "opacity-50 cursor-not-allowed",
+            isOpen && "ring-2 ring-blue-500 border-blue-500",
             disabled 
               ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
               : "cursor-pointer border-gray-300 hover:border-gray-400",
