@@ -3,19 +3,10 @@ import { Button } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
 import { Label } from './label';
-import { Textarea } from './textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { cn } from '@/lib/utils';
 import { Package, Edit, CheckCircle } from 'lucide-react';
 
-interface ToolUnit {
-  id: string;
-  displayId?: string;
-  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  isAvailable: boolean;
-  unitNumber?: number;
-  notes?: string;
-}
 
 interface Unit {
   id: string;
@@ -29,9 +20,7 @@ interface Unit {
 interface ConditionPickerProps {
   itemName: string;
   units: Unit[];
-  currentCondition?: string;
   onConditionsChange?: (conditions: Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>) => void;
-  onUnitConditionsChange?: (updates: Array<{ unitId: string; condition: string; notes?: string }>) => void;
   className?: string;
 }
 
@@ -47,13 +36,11 @@ const getConditionColor = (condition: string) => {
   return conditionInfo?.color || 'bg-gray-100 text-gray-800 border-gray-200';
 };
 
-export function ConditionPicker({ 
-  itemName, 
-  units, 
-  currentCondition,
+export function ConditionPicker({
+  itemName,
+  units,
   onConditionsChange,
-  onUnitConditionsChange, 
-  className 
+  className
 }: ConditionPickerProps) {
   const [selectionMode, setSelectionMode] = useState<'bulk' | 'individual'>('bulk');
   const [bulkCondition, setBulkCondition] = useState<'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'>('GOOD');
@@ -135,7 +122,7 @@ export function ConditionPicker({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <Label className="text-sm font-medium text-gray-700 mb-2 block">Return Condition for All Units</Label>
-              <Select value={bulkCondition} onValueChange={(value: any) => setBulkCondition(value)}>
+              <Select value={bulkCondition} onValueChange={(value: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') => setBulkCondition(value)}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -200,7 +187,7 @@ export function ConditionPicker({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <Badge className={cn("text-xs", getConditionColor(unit.condition))}>
-                    {(unit as any).displayId || `Unit ${unit.unitNumber || 1}`}
+                    {unit.displayId || `Unit ${unit.unitNumber || 1}`}
                   </Badge>
                   <span className="text-sm font-medium">
                     Current: {unit.condition}

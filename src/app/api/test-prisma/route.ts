@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 // GET /api/test-prisma - Test prisma connection
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('Testing Prisma connection...')
     
@@ -11,20 +11,16 @@ export async function GET(request: NextRequest) {
     console.log('Prisma connected successfully')
     
     // Test simple query
-    const userCount = await prisma.user.count()
-    console.log('User count:', userCount)
-    
     const toolCount = await prisma.tool.count()
     console.log('Tool count:', toolCount)
-    
+
     const materialCount = await prisma.material.count()
     console.log('Material count:', materialCount)
-    
+
     return NextResponse.json({
       success: true,
       message: 'Prisma test successful',
       data: {
-        users: userCount,
         tools: toolCount,
         materials: materialCount
       },

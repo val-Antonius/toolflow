@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +16,23 @@ import {
   Filter
 } from 'lucide-react';
 
+interface ChartDataPoint {
+  month: string;
+  created?: number;
+  total?: number;
+  consumed?: number;
+  borrowed?: number;
+  returned?: number;
+  overdue?: number;
+  good?: number;
+  fair?: number;
+  poor?: number;
+}
+
 interface ChartData {
   filter: string;
   months: number;
-  data: any[];
+  data: ChartDataPoint[];
 }
 
 interface ChartAnalyticsProps {
@@ -47,7 +59,7 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchChartData = async () => {
+  const fetchChartData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/dashboard/charts?filter=${selectedFilter}&months=${selectedMonths}`);
@@ -62,11 +74,11 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedFilter, selectedMonths]);
 
   useEffect(() => {
     fetchChartData();
-  }, [selectedFilter, selectedMonths]);
+  }, [selectedFilter, selectedMonths, fetchChartData]);
 
   const currentFilter = filterOptions.find(f => f.value === selectedFilter);
   const IconComponent = currentFilter?.icon || TrendingUp;

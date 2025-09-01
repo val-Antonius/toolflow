@@ -153,7 +153,7 @@ export async function PUT(
     }, 'Tool updated successfully')
   } catch (error) {
     console.error('Error updating tool:', error)
-    return handleDatabaseError(error as any)
+    return handleDatabaseError(error as unknown)
   }
 }
 
@@ -205,6 +205,6 @@ export async function DELETE(
     return successResponse({}, 'Tool deleted successfully')
   } catch (error) {
     console.error('Error deleting tool:', error)
-    return handleDatabaseError(error as any)
+    return handleDatabaseError(error as unknown)
   }
 }

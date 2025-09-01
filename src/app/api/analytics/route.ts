@@ -2,6 +2,64 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { successResponse, handleDatabaseError } from '@/lib/api-utils'
 
+// Type definitions for analytics data
+interface OverviewAnalytics {
+  summary: {
+    totalBorrowings: number
+    totalConsumptions: number
+    activeBorrowings: number
+    overdueBorrowings: number
+    totalTools: number
+    totalMaterials: number
+    lowStockMaterials: number
+    recentActivities: number
+  }
+  trends: Array<{ date: string; borrowings: number; consumptions: number }>
+}
+
+interface BorrowingTrends {
+  statusBreakdown: Record<string, number>
+  categoryBreakdown: Record<string, number>
+  dailyTrend: Array<{ date: string; count: number }>
+  totalBorrowings: number
+  averageItemsPerBorrowing: number
+}
+
+interface ConsumptionTrends {
+  categoryBreakdown: Record<string, number>
+  projectBreakdown: Record<string, number>
+  dailyTrend: Array<{ date: string; count: number }>
+  totalConsumptions: number
+  totalValue: number
+  averageValuePerConsumption: number
+}
+
+interface InventoryStatus {
+  tools: {
+    total: number
+    inUse: number
+    available: number
+    utilizationRate: number
+    conditionBreakdown: Record<string, number>
+    categoryBreakdown: Record<string, number>
+  }
+  materials: {
+    total: number
+    stockStatus: Record<string, number>
+    lowStock: number
+    outOfStock: number
+  }
+}
+
+interface UserActivity {
+  borrowingUserActivity: Record<string, number>
+  consumptionUserActivity: Record<string, number>
+  departmentActivity: Record<string, number>
+  totalActiveUsers: number
+}
+
+type AnalyticsData = OverviewAnalytics | BorrowingTrends | ConsumptionTrends | InventoryStatus | UserActivity
+
 // GET /api/analytics - Get analytics data for charts and insights
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +71,7 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
     const endDate = new Date()
 
-    let analyticsData: any = {}
+    let analyticsData: AnalyticsData
 
     switch (type) {
       case 'overview':
@@ -29,7 +87,7 @@ export async function GET(request: NextRequest) {
         analyticsData = await getInventoryStatus()
         break
       case 'user-activity':
-        analyticsData = await getUserActivity(startDate, endDate)
+        analyticsData = await getUserActivity()
         break
       default:
         analyticsData = await getOverviewAnalytics(startDate, endDate)
@@ -122,13 +180,13 @@ async function getBorrowingTrends(startDate: Date, endDate: Date) {
   })
 
   // Group by status
-  const statusBreakdown = borrowings.reduce((acc: any, borrowing) => {
+  const statusBreakdown = borrowings.reduce((acc: Record<string, number>, borrowing) => {
     acc[borrowing.status] = (acc[borrowing.status] || 0) + 1
     return acc
   }, {})
 
   // Group by category
-  const categoryBreakdown = borrowings.reduce((acc: any, borrowing) => {
+  const categoryBreakdown = borrowings.reduce((acc: Record<string, number>, borrowing) => {
     borrowing.borrowingItems.forEach(item => {
       const category = item.tool.category.name
       acc[category] = (acc[category] || 0) + item.quantity
@@ -166,7 +224,7 @@ async function getConsumptionTrends(startDate: Date, endDate: Date) {
   })
 
   // Group by category
-  const categoryBreakdown = consumptions.reduce((acc: any, consumption) => {
+  const categoryBreakdown = consumptions.reduce((acc: Record<string, number>, consumption) => {
     consumption.consumptionItems.forEach(item => {
       const category = item.material.category.name
       acc[category] = (acc[category] || 0) + Number(item.quantity)
@@ -175,7 +233,7 @@ async function getConsumptionTrends(startDate: Date, endDate: Date) {
   }, {})
 
   // Group by project
-  const projectBreakdown = consumptions.reduce((acc: any, consumption) => {
+  const projectBreakdown = consumptions.reduce((acc: Record<string, number>, consumption) => {
     const project = consumption.projectName || 'No Project'
     acc[project] = (acc[project] || 0) + 1
     return acc
@@ -205,6 +263,11 @@ async function getInventoryStatus() {
     prisma.tool.findMany({
       include: {
         category: true,
+        units: {
+          select: {
+            condition: true
+          }
+        },
         _count: {
           select: {
             borrowingItems: {
@@ -221,20 +284,22 @@ async function getInventoryStatus() {
     })
   ])
 
-  // Tool condition breakdown
-  const toolConditionBreakdown = tools.reduce((acc: any, tool) => {
-    acc[tool.condition] = (acc[tool.condition] || 0) + 1
+  // Tool condition breakdown (modified to use units)
+  const toolConditionBreakdown = tools.reduce((acc: Record<string, number>, tool) => {
+    tool.units.forEach(unit => {
+      acc[unit.condition] = (acc[unit.condition] || 0) + 1
+    })
     return acc
   }, {})
 
   // Tool category breakdown
-  const toolCategoryBreakdown = tools.reduce((acc: any, tool) => {
+  const toolCategoryBreakdown = tools.reduce((acc: Record<string, number>, tool) => {
     acc[tool.category.name] = (acc[tool.category.name] || 0) + 1
     return acc
   }, {})
 
   // Material stock status
-  const materialStockStatus = materials.reduce((acc: any, material) => {
+  const materialStockStatus = materials.reduce((acc: Record<string, number>, material) => {
     const currentQty = Number(material.currentQuantity)
     const thresholdQty = Number(material.thresholdQuantity)
     const status = currentQty <= 0 ? 'out' :
@@ -266,7 +331,7 @@ async function getInventoryStatus() {
 }
 
 // User Activity
-async function getUserActivity(startDate: Date, endDate: Date) {
+async function getUserActivity() {
   // User activity analytics removed (no user references)
   return {
     borrowingUserActivity: {},

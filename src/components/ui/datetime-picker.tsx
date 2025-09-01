@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { Input } from './input';
 import { Label } from './label';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
@@ -46,7 +45,7 @@ export function DateTimePicker({
             // Fallback to click() for broader browser support
             inputRef.current.click();
           }
-        } catch (e) {
+        } catch {
           // If showPicker fails, ensure the input is still clickable
           inputRef.current.click();
         }

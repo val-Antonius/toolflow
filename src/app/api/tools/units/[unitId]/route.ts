@@ -10,11 +10,15 @@ import {
 // GET /api/tools/units/:unitId - Get unit details with history
 export async function GET(
   request: NextRequest,
-  { params }: { params: { unitId: string } }
+  { params }: { params: Promise<{ unitId: string }> }
 ) {
   try {
+    // Await params in Next.js 15+
+    const resolvedParams = await params
+    const unitId = resolvedParams.unitId
+
     const unit = await prisma.toolUnit.findUnique({
-      where: { id: params.unitId },
+      where: { id: unitId },
       include: {
         tool: {
           select: {
@@ -58,14 +62,18 @@ export async function GET(
 // PATCH /api/tools/units/:unitId - Update unit condition
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { unitId: string } }
+  { params }: { params: Promise<{ unitId: string }> }
 ) {
   try {
+    // Await params in Next.js 15+
+    const resolvedParams = await params
+    const unitId = resolvedParams.unitId
+
     const data = await request.json()
     const { condition, notes } = data
 
     const unit = await prisma.toolUnit.findUnique({
-      where: { id: params.unitId },
+      where: { id: unitId },
       include: { tool: true }
     })
 
@@ -74,7 +82,7 @@ export async function PATCH(
     }
 
     const updatedUnit = await prisma.toolUnit.update({
-      where: { id: params.unitId },
+      where: { id: unitId },
       data: {
         condition,
         notes

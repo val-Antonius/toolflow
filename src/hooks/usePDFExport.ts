@@ -1,11 +1,22 @@
 import { useState } from 'react';
-import { PDFExporter, PDFExportOptions } from '@/lib/pdf-export';
+import { PDFExporter, PDFExportOptions, PDFDataRow, PDFSummaryData, PDFFilterData } from '@/lib/pdf-export';
 import { ReportColumn } from '@/lib/report-config';
 
 export interface ExportProgress {
   stage: 'preparing' | 'generating' | 'downloading' | 'complete' | 'error';
   message: string;
   progress: number;
+}
+
+export interface ReportConfig {
+  label: string;
+  description: string;
+  columns: ReportColumn[];
+}
+
+export interface ReportData {
+  data: PDFDataRow[];
+  summary?: PDFSummaryData;
 }
 
 export function usePDFExport() {
@@ -20,9 +31,9 @@ export function usePDFExport() {
     reportTitle: string,
     reportSubtitle: string,
     columns: ReportColumn[],
-    data: any[],
-    summary?: { [key: string]: any },
-    filters?: { [key: string]: any },
+    data: PDFDataRow[],
+    summary?: PDFSummaryData,
+    filters?: PDFFilterData,
     orientation: 'portrait' | 'landscape' = 'landscape'
   ) => {
     try {
@@ -74,9 +85,9 @@ export function usePDFExport() {
   };
 
   const exportReportData = async (
-    reportConfig: any,
-    reportData: any,
-    appliedFilters: any
+    reportConfig: ReportConfig,
+    reportData: ReportData,
+    appliedFilters: PDFFilterData
   ) => {
     if (!reportData || !reportData.data || reportData.data.length === 0) {
       updateProgress('error', 'No data available to export.', 0);
@@ -88,7 +99,7 @@ export function usePDFExport() {
     const subtitle = reportConfig.description;
 
     // Clean and format filters for display
-    const cleanFilters: { [key: string]: any } = {};
+    const cleanFilters: PDFFilterData = {};
     Object.entries(appliedFilters).forEach(([key, value]) => {
       // Skip internal/system filters
       if (['page', 'limit', 'sortBy', 'sortOrder'].includes(key)) return;

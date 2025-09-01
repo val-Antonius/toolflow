@@ -4,6 +4,11 @@ const prisma = new PrismaClient()
 
 // Type for creating a tool with units
 type ToolCreateWithUnits = Prisma.ToolCreateInput & {
+  category?: {
+    connect: {
+      id: string;
+    };
+  };
   units?: {
     create: Array<{
       unitNumber: number;
@@ -53,7 +58,9 @@ async function main() {
   const toolsData: ToolCreateWithUnits[] = [
     {
       name: 'Kunci Angin',
-      categoryId: categories[0].id,
+      category: {
+        connect: { id: categories[0].id }
+      },
       totalQuantity: 10,
       availableQuantity: 8,
       location: 'Warehouse A',
@@ -81,7 +88,9 @@ async function main() {
     },
     {
       name: 'Set Bor',
-      categoryId: categories[1].id,
+      category: {
+        connect: { id: categories[1].id }
+      },
       totalQuantity: 15,
       availableQuantity: 15,
       location: 'Warehouse A',
@@ -104,7 +113,9 @@ async function main() {
     },
     {
       name: 'Meteran',
-      categoryId: categories[2].id,
+      category: {
+        connect: { id: categories[2].id }
+      },
       totalQuantity: 25,
       availableQuantity: 22,
       location: 'Warehouse A',
@@ -132,7 +143,9 @@ async function main() {
     },
     {
       name: 'Tangga Portable',
-      categoryId: categories[0].id,
+      category: {
+        connect: { id: categories[0].id }
+      },
       totalQuantity: 10,
       availableQuantity: 10,
       location: 'Warehouse B',
@@ -155,7 +168,9 @@ async function main() {
     },
     {
       name: 'Safety Helmets',
-      categoryId: categories[1].id,
+      category: {
+        connect: { id: categories[1].id }
+      },
       totalQuantity: 15,
       availableQuantity: 15,
       location: 'Warehouse B',
@@ -178,7 +193,9 @@ async function main() {
     },
     {
       name: 'Modem',
-      categoryId: categories[2].id,
+      category: {
+        connect: { id: categories[2].id }
+      },
       totalQuantity: 25,
       availableQuantity: 25,
       location: 'Warehouse B',

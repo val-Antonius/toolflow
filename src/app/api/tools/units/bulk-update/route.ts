@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { ToolConditionSchema } from '@/lib/validations'
 import {
   successResponse,
-  errorResponse,
   validateRequest,
   handleDatabaseError,
   logActivity

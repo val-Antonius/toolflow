@@ -1,18 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   FileText,
-  Download,
   Filter,
   BarChart3,
-  PieChart,
-  TrendingUp,
-  Package,
-  Calendar,
   AlertCircle,
   ArrowLeft,
   Settings
@@ -32,15 +26,39 @@ import {
 } from '@/lib/report-config';
 
 // New unified interfaces for the revolutionary system
+interface DateRange {
+  from: string;
+  to: string;
+}
+
+interface ReportFilters {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  dateRange?: DateRange;
+  category?: string | string[];
+  status?: string | string[];
+  borrower?: string;
+  consumer?: string;
+  person?: string;
+  actorName?: string;
+  [key: string]: unknown;
+}
+
+interface ReportSummary {
+  totalRecords?: number;
+  totalValue?: number;
+  averageValue?: number;
+  [key: string]: unknown;
+}
+
 interface UnifiedReportData {
   type: string;
-  dateRange: {
-    from: string;
-    to: string;
-  };
-  filters: any;
-  summary: any;
-  data: any[];
+  dateRange: DateRange;
+  filters: ReportFilters;
+  summary: ReportSummary;
+  data: Record<string, unknown>[];
   pagination?: {
     page: number;
     limit: number;
@@ -57,7 +75,7 @@ interface ReportState {
   step: 'select-type' | 'configure-filters' | 'preview-results';
   selectedReportType: string | null;
   reportConfig: ReportTypeConfig | null;
-  filters: any;
+  filters: ReportFilters;
   reportData: UnifiedReportData | null;
   isLoading: boolean;
   error: string | null;
@@ -66,9 +84,9 @@ interface ReportState {
 // Revolutionary unified API functions
 const generateUnifiedReport = async (
   reportType: string,
-  filters: any,
+  filters: ReportFilters,
   format: 'json' | 'csv' | 'excel' = 'json'
-): Promise<{ success: boolean; data?: any; blob?: Blob; error?: string }> => {
+): Promise<{ success: boolean; data?: UnifiedReportData; blob?: Blob; error?: string }> => {
   try {
     const config = getReportConfig(reportType);
     if (!config) {
@@ -76,7 +94,7 @@ const generateUnifiedReport = async (
     }
 
     // Transform filters to API format
-    const apiFilters: any = {
+    const apiFilters: Record<string, unknown> = {
       type: config.apiEndpoint,
       format,
       page: filters.page || 1,
@@ -98,7 +116,7 @@ const generateUnifiedReport = async (
     // Handle category filters (FIXED: Full multi-select support)
     if (filters.category && Array.isArray(filters.category) && filters.category.length > 0) {
       // Filter out 'all' values and send as array
-      const validCategories = filters.category.filter(cat => cat !== 'all');
+      const validCategories = filters.category.filter((cat: unknown) => cat !== 'all');
       if (validCategories.length > 0) {
         apiFilters.categoryIds = validCategories; // Use categoryIds for arrays
       }
@@ -109,7 +127,7 @@ const generateUnifiedReport = async (
     // Handle status filters (FIXED: Multi-select support)
     if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
       // Filter out 'all' values and send as array
-      const validStatuses = filters.status.filter(status => status !== 'all');
+      const validStatuses = filters.status.filter((status: unknown) => status !== 'all');
       if (validStatuses.length > 0) {
         apiFilters.status = validStatuses; // Send as array
       }
@@ -166,7 +184,7 @@ const generateUnifiedReport = async (
 };
 
 // Export functionality
-const handleExport = async (format: 'csv' | 'excel', reportType: string, filters: any) => {
+const handleExport = async (format: 'csv' | 'excel', reportType: string, filters: ReportFilters) => {
   try {
     const result = await generateUnifiedReport(reportType, filters, format);
     if (result.success && result.blob) {
@@ -214,7 +232,7 @@ export default function Reports() {
       const config = await populateFilterOptions(reportType);
 
       // Initialize default filters based on configuration
-      const defaultFilters: any = {
+      const defaultFilters: ReportFilters = {
         page: 1,
         limit: 50,
         sortBy: config.defaultSort.key,
@@ -260,7 +278,7 @@ export default function Reports() {
     }
   };
 
-  const handleFiltersChange = (newFilters: any) => {
+  const handleFiltersChange = (newFilters: ReportFilters) => {
     setReportState(prev => ({
       ...prev,
       filters: { ...newFilters, sortBy, sortOrder },

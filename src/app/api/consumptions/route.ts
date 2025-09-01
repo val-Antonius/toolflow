@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { CreateConsumptionSchema } from '@/lib/validations'
 
@@ -14,6 +15,37 @@ import {
 } from '@/lib/api-utils'
 import { generateConsumptionDisplayId } from '@/lib/display-id-utils'
 
+// Type definitions for consumption queries
+type ConsumptionWithItems = Prisma.ConsumptionTransactionGetPayload<{
+  include: {
+    consumptionItems: {
+      include: {
+        material: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+            category: { select: { name: true } },
+          },
+        },
+      },
+    },
+  },
+}>
+
+type ConsumptionItemWithMaterial = Prisma.ConsumptionItemGetPayload<{
+  include: {
+    material: {
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        category: { select: { name: true } },
+      },
+    },
+  },
+}>
+
 // GET /api/consumptions - Get all consumption transactions
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +57,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc';
 
     // Build filters
-    const where: any = {
+    const where: Prisma.ConsumptionTransactionWhereInput = {
       ...buildSearchFilter(search, ['purpose', 'projectName', 'consumerName']),
     };
     if (projectName) {
@@ -61,12 +93,12 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Add computed fields
-    const consumptionsWithTotals = consumptions.map((consumption: any) => ({
+    const consumptionsWithTotals = consumptions.map((consumption: ConsumptionWithItems) => ({
       ...consumption,
       totalItems: consumption.consumptionItems?.length || 0,
-      totalQuantity: (consumption.consumptionItems || []).reduce((sum: number, item: any) => sum + Number(item.quantity), 0),
+      totalQuantity: (consumption.consumptionItems || []).reduce((sum: number, item: ConsumptionItemWithMaterial) => sum + Number(item.quantity), 0),
       calculatedTotalValue: (consumption.consumptionItems || []).reduce(
-        (sum: number, item: any) => sum + (Number(item.totalValue) || 0), 0
+        (sum: number, item: ConsumptionItemWithMaterial) => sum + (Number(item.totalValue) || 0), 0
       ),
     }));
 

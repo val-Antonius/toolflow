@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server'
 import { CreateToolSchema, UpdateToolSchema } from '@/lib/validations'
 import { successResponse, errorResponse } from '@/lib/api-utils'
 
 // GET /api/test-schema - Test schema validation
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Test if schemas are working
     const testData = {
@@ -30,8 +29,7 @@ export async function GET(request: NextRequest) {
     return successResponse({
       message: 'Schema validation working correctly',
       createSchema: 'OK',
-      updateSchema: 'OK',
-      zodVersion: require('zod/package.json').version
+      updateSchema: 'OK'
     })
   } catch (error) {
     console.error('Schema test error:', error)

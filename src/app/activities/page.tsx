@@ -43,6 +43,14 @@ interface BorrowingTransaction {
       id: string;
       name: string;
     };
+    borrowedUnits?: Array<{
+      id: string;
+      toolUnit: {
+        unitNumber: number;
+        condition: string;
+      };
+      notes?: string;
+    }>;
   }>;
   totalItems: number;
   isOverdue: boolean;
@@ -126,7 +134,7 @@ export default function Activities() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarType, setSidebarType] = useState<'return' | 'extend'>('return');
-  const [selectedBorrowing, setSelectedBorrowing] = useState<any>(null);
+  const [selectedBorrowing, setSelectedBorrowing] = useState<BorrowingTransaction | null>(null);
   const [expandedHistory, setExpandedHistory] = useState<string[]>([]);
 
   // Data states
@@ -170,7 +178,7 @@ export default function Activities() {
     setSidebarOpen(true);
   };
 
-  const handleFormSubmit = async (formData: any) => {
+  const handleFormSubmit = async (formData: Record<string, unknown>) => {
     try {
       console.log('Form submission started:', { sidebarType, formData });
 
@@ -277,9 +285,10 @@ export default function Activities() {
       // Show success message
       alert(result.message || 'Operation completed successfully');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Activities CRUD error:', error);
-      alert(error.message || 'Operation failed');
+      const message = error instanceof Error ? error.message : 'Operation failed';
+      alert(message);
     }
   };
 
@@ -835,15 +844,16 @@ export default function Activities() {
         borrowing={selectedBorrowing ? {
           id: selectedBorrowing.id,
           borrower: selectedBorrowing.borrowerName || 'Unknown User',
-          items: selectedBorrowing.borrowingItems?.map((item: any) => ({
+          items: selectedBorrowing.borrowingItems?.map((item) => ({
             id: item.id,
             name: item.tool?.name || 'Unknown Tool',
+            type: 'tool' as const,
             quantity: item.quantity || 0,
-            originalCondition: item.originalCondition || 'UNKNOWN',
-            units: item.borrowedUnits?.map((unit: any) => ({
+            originalCondition: (item.originalCondition as 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') || 'GOOD',
+            units: item.borrowedUnits?.map((unit) => ({
               id: unit.id, // This should be borrowingItemUnitId
               unitNumber: unit.toolUnit?.unitNumber || 1,
-              condition: unit.toolUnit?.condition || 'UNKNOWN',
+              condition: (unit.toolUnit?.condition as 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') || 'GOOD',
               isAvailable: false, // These are borrowed units
               notes: unit.notes || ''
             })) || []

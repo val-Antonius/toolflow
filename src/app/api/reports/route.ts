@@ -8,6 +8,124 @@ import {
   handleDatabaseError
 } from '@/lib/api-utils'
 
+// Type definitions for report data structures
+interface BorrowingItem {
+  id: string;
+  toolName: string;
+  category: string;
+  quantity: number;
+  originalCondition?: string;
+  returnCondition?: string;
+  returnDate?: Date;
+  units: BorrowingUnit[];
+}
+
+interface BorrowingUnit {
+  id: string;
+  unitNumber: string;
+  condition: string;
+  returnCondition?: string;
+}
+
+interface BorrowingReportItem {
+  id: string;
+  displayId?: string;
+  originalId: string;
+  borrower: string;
+  borrowDate: Date;
+  dueDate: Date;
+  returnDate?: Date;
+  status: string;
+  purpose?: string;
+  items: BorrowingItem[];
+  totalItems: number;
+  isOverdue: boolean;
+  daysOverdue: number;
+}
+
+interface ConsumptionItem {
+  id: string;
+  materialName: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  unitPrice?: number;
+  totalValue?: number;
+  remainingStock: number;
+}
+
+interface ConsumptionReportItem {
+  id: string;
+  displayId?: string;
+  originalId: string;
+  consumer: string;
+  consumptionDate: Date;
+  purpose?: string;
+  projectName?: string;
+  items: ConsumptionItem[];
+  totalItems: number;
+  totalValue: number;
+}
+
+
+interface HistoryItem {
+  name: string;
+  category: string;
+  quantity: number;
+  condition?: string | null;
+  unit?: string;
+  value?: number | null;
+}
+
+interface HistoryReportItem {
+  id: string;
+  displayId?: string | null;
+  originalId: string;
+  type: 'borrowing' | 'consumption';
+  date: Date | null;
+  person: string;
+  purpose?: string;
+  projectName?: string | null;
+  items: HistoryItem[];
+  totalItems: number;
+  totalValue?: number | null;
+  status: string;
+}
+
+interface ActivityReportItem {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  actorName: string;
+  createdAt: Date;
+  metadata?: Record<string, unknown>;
+}
+
+interface BorrowingSummary {
+  totalBorrowings: number;
+  activeBorrowings: number;
+  overdueBorrowings: number;
+  completedBorrowings: number;
+  totalItemsBorrowed: number;
+}
+
+interface ConsumptionSummary {
+  totalConsumptions: number;
+  totalItemsConsumed: number;
+  totalValue: number;
+  uniqueProjects: number;
+}
+
+interface ActivitySummary {
+  totalActivities: number;
+  uniqueUsers: number;
+  actionBreakdown: Record<string, number>;
+}
+
+type ReportSummary = BorrowingSummary | ConsumptionSummary | ActivitySummary | Record<string, unknown>;
+
+
 // Enhanced Report generation schema - FIXED: Multi-select support
 const ReportSchema = z.object({
   type: z.enum(['borrowing', 'consuming', 'tools', 'material', 'history', 'activity']),
@@ -74,8 +192,8 @@ export async function POST(request: NextRequest) {
     const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Default: 30 days ago
     const endDate = dateTo ? new Date(dateTo) : new Date() // Default: now
 
-    let reportData: any = {}
-    let summary: any = {}
+    let reportData: Record<string, unknown> = {}
+    let summary: ReportSummary = {}
 
     switch (type) {
       case 'borrowing':
@@ -165,7 +283,7 @@ async function generateBorrowingReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const where: any = {
+  const where: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate }
   }
   if (borrowerName) where.borrowerName = { contains: borrowerName, mode: 'insensitive' }
@@ -187,7 +305,7 @@ async function generateBorrowingReport(
   }
 
   // Build sort order
-  const orderBy: any = {}
+  const orderBy: Record<string, 'asc' | 'desc'> = {}
   if (sortBy) {
     orderBy[sortBy] = sortOrder
   } else {
@@ -276,7 +394,7 @@ async function generateConsumptionReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const where: any = {
+  const where: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate }
   }
   if (consumerName) where.consumerName = { contains: consumerName, mode: 'insensitive' }
@@ -293,7 +411,7 @@ async function generateConsumptionReport(
   }
 
   // Build sort order
-  const orderBy: any = {}
+  const orderBy: Record<string, 'asc' | 'desc'> = {}
   if (sortBy) {
     orderBy[sortBy] = sortOrder
   } else {
@@ -359,191 +477,7 @@ async function generateConsumptionReport(
   }
 }
 
-// Enhanced Inventory Report with pagination
-async function generateInventoryReport(
-  categoryId?: string,
-  itemType: 'all' | 'tools' | 'materials' = 'all',
-  page: number = 1,
-  limit: number = 100,
-  sortBy?: string,
-  sortOrder: 'asc' | 'desc' = 'desc'
-) {
-  const items: any[] = []
 
-  // Build sort order
-  const orderBy: any = {}
-  if (sortBy) {
-    orderBy[sortBy] = sortOrder
-  } else {
-    orderBy.name = sortOrder
-  }
-
-  // Fetch tools if needed
-  if (itemType === 'all' || itemType === 'tools') {
-    const toolsWhere: any = {}
-    if (categoryId && categoryId !== 'all') {
-      toolsWhere.categoryId = categoryId
-    }
-
-    const tools = await prisma.tool.findMany({
-      where: toolsWhere,
-      include: {
-        category: { select: { name: true } },
-        _count: {
-          select: {
-            borrowingItems: {
-              where: {
-                borrowingTransaction: { status: { in: ['ACTIVE', 'OVERDUE'] } }
-              }
-            }
-          }
-        }
-      },
-      orderBy
-    })
-
-    items.push(...tools.map(tool => ({
-      id: tool.id,
-      name: tool.name,
-      category: tool.category.name,
-      type: 'TOOL',
-      condition: 'N/A', // Tool model doesn't have condition field
-      total: tool.totalQuantity,
-      available: tool.availableQuantity,
-      borrowed: tool.totalQuantity - tool.availableQuantity,
-      status: tool.availableQuantity > 0 ? 'Available' : 'Out of Stock',
-      location: tool.location
-    })))
-  }
-
-  // Fetch materials if needed
-  if (itemType === 'all' || itemType === 'materials') {
-    const materialsWhere: any = {}
-    if (categoryId && categoryId !== 'all') {
-      materialsWhere.categoryId = categoryId
-    }
-
-    const materials = await prisma.material.findMany({
-      where: materialsWhere,
-      include: {
-        category: { select: { name: true } }
-      },
-      orderBy
-    })
-
-    items.push(...materials.map(material => ({
-      id: material.id,
-      name: material.name,
-      category: material.category.name,
-      type: 'MATERIAL',
-      condition: 'N/A',
-      total: Number(material.currentQuantity),
-      available: Number(material.currentQuantity),
-      borrowed: 0,
-      status: Number(material.currentQuantity) > Number(material.thresholdQuantity) ? 'In Stock' : 'Low Stock',
-      unit: material.unit
-    })))
-  }
-
-  // Apply pagination
-  const startIndex = (page - 1) * limit
-  const endIndex = startIndex + limit
-  const paginatedItems = items.slice(startIndex, endIndex)
-
-
-
-  return {
-    data: paginatedItems,
-    pagination: {
-      page,
-      limit,
-      total: items.length,
-      totalPages: Math.ceil(items.length / limit),
-      hasNext: page < Math.ceil(items.length / limit),
-      hasPrev: page > 1
-    }
-  }
-}
-
-// Return Report - Tools that have been returned
-async function generateReturnReport(
-  startDate: Date,
-  endDate: Date,
-  categoryId?: string,
-  page: number = 1,
-  limit: number = 100,
-  sortBy?: string,
-  sortOrder: 'asc' | 'desc' = 'desc'
-) {
-  const where: any = {
-    status: 'COMPLETED',
-    returnDate: {
-      gte: startDate,
-      lte: endDate
-    }
-  }
-
-  if (categoryId && categoryId !== 'all') {
-    where.borrowingItems = {
-      some: {
-        tool: {
-          categoryId: categoryId
-        }
-      }
-    }
-  }
-
-  const [borrowings, total] = await Promise.all([
-    prisma.borrowingTransaction.findMany({
-      where,
-      include: {
-        borrowingItems: {
-          include: {
-            tool: {
-              include: {
-                category: { select: { name: true } }
-              }
-            },
-            borrowedUnits: {
-              include: {
-                toolUnit: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: sortBy ? { [sortBy]: sortOrder } : { returnDate: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit
-    }),
-    prisma.borrowingTransaction.count({ where })
-  ])
-
-  return {
-    data: borrowings.map(borrowing => ({
-      id: borrowing.id,
-      borrower: borrowing.borrowerName,
-      returnDate: borrowing.returnDate,
-      items: borrowing.borrowingItems.map(item => ({
-        toolName: item.tool.name,
-        category: item.tool.category.name,
-        quantity: item.quantity,
-        returnCondition: item.borrowedUnits.map(unit => unit.returnCondition).join(', ')
-      })),
-      totalItems: borrowing.borrowingItems.reduce((sum, item) => sum + item.quantity, 0),
-      purpose: borrowing.purpose,
-      notes: borrowing.notes
-    })),
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1
-    }
-  }
-}
 
 // Tools Report - All tools with availability status
 async function generateToolsReport(
@@ -554,7 +488,7 @@ async function generateToolsReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const where: any = {}
+  const where: Record<string, unknown> = {}
 
   // Multi-select category support
   if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
@@ -563,7 +497,7 @@ async function generateToolsReport(
 
   // Multi-select status support
   if (statuses && statuses.length > 0 && !statuses.includes('all')) {
-    const statusConditions: any[] = []
+    const statusConditions: Record<string, unknown>[] = []
 
     statuses.forEach(status => {
       if (status === 'available') {
@@ -634,7 +568,7 @@ async function generateMaterialReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const where: any = {}
+  const where: Record<string, unknown> = {}
 
   // Multi-select category support
   if (categoryIds && categoryIds.length > 0 && !categoryIds.includes('all')) {
@@ -643,7 +577,7 @@ async function generateMaterialReport(
 
   // Multi-select status support
   if (statuses && statuses.length > 0 && !statuses.includes('all')) {
-    const statusConditions: any[] = []
+    const statusConditions: Record<string, unknown>[] = []
 
     statuses.forEach(status => {
       if (status === 'in-stock') {
@@ -715,11 +649,11 @@ async function generateHistoryReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const transactions: any[] = []
+  const transactions: HistoryReportItem[] = []
 
   // Get completed borrowing transactions
   if (itemType === 'all' || itemType === 'tools') {
-    const borrowingWhere: any = {
+    const borrowingWhere: Record<string, unknown> = {
       status: 'COMPLETED',
       returnDate: { gte: startDate, lte: endDate }
     }
@@ -753,7 +687,7 @@ async function generateHistoryReport(
       id: borrowing.displayId || borrowing.id,
       displayId: borrowing.displayId,
       originalId: borrowing.id,
-      type: 'borrowing',
+      type: 'borrowing' as const,
       date: borrowing.returnDate,
       person: borrowing.borrowerName,
       purpose: borrowing.purpose,
@@ -770,7 +704,7 @@ async function generateHistoryReport(
 
   // Get consumption transactions
   if (itemType === 'all' || itemType === 'materials') {
-    const consumptionWhere: any = {
+    const consumptionWhere: Record<string, unknown> = {
       consumptionDate: { gte: startDate, lte: endDate }
     }
 
@@ -803,7 +737,7 @@ async function generateHistoryReport(
       id: consumption.displayId || consumption.id,
       displayId: consumption.displayId,
       originalId: consumption.id,
-      type: 'consumption',
+      type: 'consumption' as const,
       date: consumption.consumptionDate,
       person: consumption.consumerName,
       purpose: consumption.purpose,
@@ -811,20 +745,20 @@ async function generateHistoryReport(
       items: consumption.consumptionItems.map(item => ({
         name: item.material.name,
         category: item.material.category.name,
-        quantity: item.quantity,
+        quantity: Number(item.quantity),
         unit: item.material.unit,
-        value: item.totalValue
+        value: item.totalValue ? Number(item.totalValue) : null
       })),
       totalItems: consumption.consumptionItems.length,
-      totalValue: consumption.totalValue,
+      totalValue: consumption.totalValue ? Number(consumption.totalValue) : null,
       status: 'COMPLETED'
     })))
   }
 
   // Sort combined transactions
   transactions.sort((a, b) => {
-    const dateA = new Date(a.date).getTime()
-    const dateB = new Date(b.date).getTime()
+    const dateA = a.date ? new Date(a.date).getTime() : 0
+    const dateB = b.date ? new Date(b.date).getTime() : 0
     return sortOrder === 'desc' ? dateB - dateA : dateA - dateB
   })
 
@@ -856,13 +790,13 @@ async function generateActivityReport(
   sortBy?: string,
   sortOrder: 'asc' | 'desc' = 'desc'
 ) {
-  const where: any = {
+  const where: Record<string, unknown> = {
     createdAt: { gte: startDate, lte: endDate }
   }
   if (actorName) where.actorName = { contains: actorName, mode: 'insensitive' }
 
   // Build sort order
-  const orderBy: any = {}
+  const orderBy: Record<string, 'asc' | 'desc'> = {}
   if (sortBy) {
     orderBy[sortBy] = sortOrder
   } else {
@@ -901,36 +835,41 @@ async function generateActivityReport(
 }
 
 // Generate Report Summary
-function generateReportSummary(type: string, data: any) {
+function generateReportSummary(type: string, data: unknown): ReportSummary {
+  const dataArray = Array.isArray(data) ? data : []
   switch (type) {
     case 'borrowing':
       return {
-        totalBorrowings: data.length,
-        activeBorrowings: data.filter((b: any) => b.status === 'ACTIVE').length,
-        overdueBorrowings: data.filter((b: any) => b.isOverdue).length,
-        completedBorrowings: data.filter((b: any) => b.status === 'COMPLETED').length,
-        totalItemsBorrowed: data.reduce((sum: number, b: any) => sum + b.totalItems, 0)
+        totalBorrowings: dataArray.length,
+        activeBorrowings: dataArray.filter((b: BorrowingReportItem) => b.status === 'ACTIVE').length,
+        overdueBorrowings: dataArray.filter((b: BorrowingReportItem) => b.isOverdue).length,
+        completedBorrowings: dataArray.filter((b: BorrowingReportItem) => b.status === 'COMPLETED').length,
+        totalItemsBorrowed: dataArray.reduce((sum: number, b: BorrowingReportItem) => sum + b.totalItems, 0)
       }
     case 'consumption':
       return {
-        totalConsumptions: data.length,
-        totalItemsConsumed: data.reduce((sum: number, c: any) => sum + c.totalItems, 0),
-        totalValue: data.reduce((sum: number, c: any) => sum + (c.totalValue || 0), 0),
-        uniqueProjects: [...new Set(data.map((c: any) => c.projectName).filter(Boolean))].length
+        totalConsumptions: dataArray.length,
+        totalItemsConsumed: dataArray.reduce((sum: number, c: ConsumptionReportItem) => sum + c.totalItems, 0),
+        totalValue: dataArray.reduce((sum: number, c: ConsumptionReportItem) => sum + (c.totalValue || 0), 0),
+        uniqueProjects: [...new Set(dataArray.map((c: ConsumptionReportItem) => c.projectName).filter(Boolean))].length
       }
     case 'inventory':
+      const inventoryData = data as {
+        tools?: { hasActiveBorrowing: boolean }[];
+        materials?: { isLowStock: boolean; stockStatus: string }[];
+      }
       return {
-        totalTools: data.tools.length,
-        totalMaterials: data.materials.length,
-        toolsInUse: data.tools.filter((t: any) => t.hasActiveBorrowing).length,
-        lowStockMaterials: data.materials.filter((m: any) => m.isLowStock).length,
-        outOfStockMaterials: data.materials.filter((m: any) => m.stockStatus === 'out').length
+        totalTools: inventoryData.tools?.length || 0,
+        totalMaterials: inventoryData.materials?.length || 0,
+        toolsInUse: inventoryData.tools?.filter((t) => t.hasActiveBorrowing).length || 0,
+        lowStockMaterials: inventoryData.materials?.filter((m) => m.isLowStock).length || 0,
+        outOfStockMaterials: inventoryData.materials?.filter((m) => m.stockStatus === 'out').length || 0
       }
     case 'activity':
       return {
-        totalActivities: data.length,
-  uniqueUsers: [...new Set(data.map((a: any) => a.actorName).filter(Boolean))].length,
-        actionBreakdown: data.reduce((acc: any, activity: any) => {
+        totalActivities: dataArray.length,
+        uniqueUsers: [...new Set(dataArray.map((a: ActivityReportItem) => a.actorName).filter(Boolean))].length,
+        actionBreakdown: dataArray.reduce((acc: Record<string, number>, activity: ActivityReportItem) => {
           acc[activity.action] = (acc[activity.action] || 0) + 1
           return acc
         }, {})
@@ -941,18 +880,18 @@ function generateReportSummary(type: string, data: any) {
 }
 
 // Convert to CSV
-function convertToCSV(_type: string, data: any): string {
-  if (!data || data.length === 0) return ''
+function convertToCSV(_type: string, data: unknown): string {
+  if (!data) return ''
 
   // This is a simplified CSV conversion
   // In a real application, you'd want a more robust CSV library
-  const actualData = data.data || data
-  if (!actualData || actualData.length === 0) return ''
+  const actualData = (data as Record<string, unknown>).data || data
+  if (!actualData || !Array.isArray(actualData) || actualData.length === 0) return ''
 
   const headers = Object.keys(actualData[0]).join(',')
-  const rows = actualData.map((item: any) =>
+  const rows = actualData.map((item: Record<string, unknown>) =>
     Object.values(item).map(value =>
-      typeof value === 'object' ? JSON.stringify(value) : value
+      typeof value === 'object' ? JSON.stringify(value) : String(value)
     ).join(',')
   ).join('\n')
 

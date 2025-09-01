@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   successResponse,
@@ -6,6 +7,23 @@ import {
   handleDatabaseError,
   logActivity
 } from '@/lib/api-utils'
+
+type ConsumptionItemWithMaterial = Prisma.ConsumptionItemGetPayload<{
+  include: {
+    material: {
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        currentQuantity: true,
+        thresholdQuantity: true,
+        category: { select: { name: true } },
+        location: true,
+        supplier: true
+      }
+    }
+  }
+}>
 
 // GET /api/consumptions/[id] - Get consumption transaction by ID
 export async function GET(
@@ -45,8 +63,8 @@ export async function GET(
     const enrichedConsumption = {
       ...consumption,
       totalItems: items.length,
-      totalQuantity: items.reduce((sum: number, item: any) => sum + Number(item.quantity), 0),
-      calculatedTotalValue: items.reduce((sum: number, item: any) => sum + (Number(item.totalValue) || 0), 0)
+      totalQuantity: items.reduce((sum: number, item: ConsumptionItemWithMaterial) => sum + Number(item.quantity), 0),
+      calculatedTotalValue: items.reduce((sum: number, item: ConsumptionItemWithMaterial) => sum + (Number(item.totalValue) || 0), 0)
     }
 
     return successResponse(enrichedConsumption)

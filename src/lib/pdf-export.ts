@@ -6,18 +6,34 @@ import { ReportColumn } from './report-config';
 declare module 'jspdf' {
   interface jsPDF {
     autoTable: typeof autoTable;
+    lastAutoTable: { finalY: number };
   }
 }
+
+// Type for column styles in autoTable
+interface ColumnStyle {
+  cellWidth: number;
+  valign: 'middle' | 'top' | 'bottom';
+  halign?: 'left' | 'center' | 'right';
+  fontStyle?: 'normal' | 'bold';
+}
+
+// Type definitions for PDF export
+export type PDFDataRow = Record<string, unknown>;
+export type PDFSummaryData = Record<string, unknown>;
+export type PDFFilterData = Record<string, unknown>;
+export type PDFOrientation = 'portrait' | 'landscape';
+export type PDFPageSize = 'a4' | 'a3' | 'letter';
 
 export interface PDFExportOptions {
   title: string;
   subtitle?: string;
   columns: ReportColumn[];
-  data: any[];
-  summary?: { [key: string]: any };
-  filters?: { [key: string]: any };
-  orientation?: 'portrait' | 'landscape';
-  pageSize?: 'a4' | 'a3' | 'letter';
+  data: PDFDataRow[];
+  summary?: PDFSummaryData;
+  filters?: PDFFilterData;
+  orientation?: PDFOrientation;
+  pageSize?: PDFPageSize;
 }
 
 export class PDFExporter {
@@ -92,7 +108,7 @@ export class PDFExporter {
     this.currentY += 15;
   }
 
-  private addFiltersSection(filters: { [key: string]: any }) {
+  private addFiltersSection(filters: PDFFilterData) {
     if (!filters || Object.keys(filters).length === 0) return;
 
     // Filter section header with background
@@ -138,15 +154,16 @@ export class PDFExporter {
     this.currentY += 10;
   }
 
-  private formatFilterValue(key: string, value: any, allFilters?: any): string {
+  private formatFilterValue(key: string, value: unknown, allFilters?: PDFFilterData): string {
     // Handle date ranges
-    if (typeof value === 'object' && value.from && value.to) {
-      const fromDate = new Date(value.from).toLocaleDateString('id-ID', {
+    if (value && typeof value === 'object' && !Array.isArray(value) && 'from' in value && 'to' in value) {
+      const dateRange = value as { from: string; to: string };
+      const fromDate = new Date(dateRange.from).toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
       });
-      const toDate = new Date(value.to).toLocaleDateString('id-ID', {
+      const toDate = new Date(dateRange.to).toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
@@ -176,11 +193,14 @@ export class PDFExporter {
     // Handle single date values
     if (key.toLowerCase().includes('date') && value) {
       try {
-        return new Date(value).toLocaleDateString('id-ID', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        });
+        if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+          return new Date(value).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+        }
+        return String(value);
       } catch {
         return String(value);
       }
@@ -223,7 +243,7 @@ export class PDFExporter {
       .replace(/^./, str => str.toUpperCase());
   }
 
-  private addSummarySection(summary: { [key: string]: any }) {
+  private addSummarySection(summary: PDFSummaryData) {
     if (!summary || Object.keys(summary).length === 0) return;
 
     // Summary section header with background
@@ -284,17 +304,17 @@ export class PDFExporter {
     });
 
     this.doc.setTextColor(0, 0, 0); // Reset color
-    this.currentY = (this.doc as any).lastAutoTable.finalY + 15;
+    this.currentY = this.doc.lastAutoTable.finalY + 15;
   }
 
-  private formatSummaryValue(value: any): string {
+  private formatSummaryValue(value: unknown): string {
     if (typeof value === 'number') {
       return value.toLocaleString('id-ID');
     }
     return String(value);
   }
 
-  private addDataTable(columns: ReportColumn[], data: any[]) {
+  private addDataTable(columns: ReportColumn[], data: PDFDataRow[]) {
     if (!data || data.length === 0) {
       this.doc.setFontSize(12);
       this.doc.text('No data available for the selected filters.', this.margin, this.currentY);
@@ -419,11 +439,11 @@ export class PDFExporter {
     return widths;
   }
 
-  private getColumnStyles(columns: ReportColumn[], widths: number[]): { [key: number]: any } {
-    const styles: { [key: number]: any } = {};
+  private getColumnStyles(columns: ReportColumn[], widths: number[]): { [key: number]: ColumnStyle } {
+    const styles: { [key: number]: ColumnStyle } = {};
 
     columns.forEach((col, index) => {
-      const baseStyle = {
+      const baseStyle: ColumnStyle = {
         cellWidth: widths[index],
         valign: 'middle'
       };
@@ -457,7 +477,7 @@ export class PDFExporter {
     return styles;
   }
 
-  private formatCellValue(value: any, column: ReportColumn, row: any): string {
+  private formatCellValue(value: unknown, column: ReportColumn, row: PDFDataRow): string {
     if (value === null || value === undefined) return '-';
 
     // Use custom render function if available
@@ -481,7 +501,10 @@ export class PDFExporter {
         return Number(value).toLocaleString('id-ID');
       
       case 'date':
-        return new Date(value).toLocaleDateString('id-ID');
+        if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+          return new Date(value).toLocaleDateString('id-ID');
+        }
+        return String(value);
       
       case 'status':
       case 'badge':
@@ -512,9 +535,7 @@ export class PDFExporter {
       columns,
       data,
       summary,
-      filters,
-      orientation = 'landscape',
-      pageSize = 'a4'
+      filters
     } = options;
 
     // Reset position

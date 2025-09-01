@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { CreateToolSchema } from '@/lib/validations'
 
 import {
@@ -21,13 +22,12 @@ export async function GET(request: NextRequest) {
     const { page, limit, skip } = getPaginationParams(searchParams)
     const search = searchParams.get('search') || undefined
     const categoryId = searchParams.get('categoryId') || undefined
-    const condition = searchParams.get('condition') || undefined
     const availability = searchParams.get('availability') || undefined
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
 
     // Build filters
-    const where: any = {
+    const where: Prisma.ToolWhereInput = {
       ...buildSearchFilter(search, ['name', 'supplier', 'location']),
     }
 
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
 
     return successResponse({
       ...completeToolData,
-      hasActiveBorrowing: completeToolData?._count.borrowingItems > 0,
+      hasActiveBorrowing: completeToolData && completeToolData._count ? completeToolData._count.borrowingItems > 0 : false,
       borrowedQuantity: (completeToolData?.totalQuantity || 0) - (completeToolData?.availableQuantity || 0),
       // Add displayId to each unit in response
       units: completeToolData?.units?.map(unit => ({

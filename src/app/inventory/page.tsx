@@ -25,6 +25,15 @@ import {
 } from 'lucide-react';
 
 // Types
+interface Category {
+  id: string;
+  name: string;
+  type: 'TOOL' | 'MATERIAL';
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ToolUnit {
   id: string;
   displayId?: string;
@@ -40,6 +49,7 @@ interface Tool {
   name: string;
   type: 'tool';
   category: {
+    id: string;
     name: string;
     type: string;
   };
@@ -60,6 +70,7 @@ interface Material {
   name: string;
   type: 'material';
   category: {
+    id: string;
     name: string;
     type: string;
   };
@@ -79,7 +90,35 @@ interface SelectedItem {
   name: string;
   type: 'tool' | 'material';
   category: string;
+  categoryId?: string;
+  quantity?: number;
+  currentQuantity?: number;
+  unit?: string;
+  threshold?: number;
+  thresholdQuantity?: number;
+  units?: ToolUnit[];
+  available?: number;
+  total?: number;
+  totalQuantity?: number;
+  availableQuantity?: number;
+  supplier?: string;
+  location?: string;
   hasActiveBorrowing?: boolean;
+  borrowedQuantity?: number;
+  stockStatus?: string;
+  isLowStock?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+type FormData = Record<string, unknown>;
+
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
 }
 
 // API functions
@@ -89,14 +128,14 @@ const fetchTools = async (searchQuery: string = ''): Promise<Tool[]> => {
     if (searchQuery) params.append('search', searchQuery);
 
     const response = await fetch(`/api/tools?${params.toString()}`);
-    const result = await response.json();
+    const result: ApiResponse<Tool[]> = await response.json();
 
-    if (result.success) {
-      return result.data.map((tool: any) => ({
+    if (result.success && result.data) {
+      return result.data.map((tool) => ({
         ...tool,
         type: 'tool' as const,
         // Ensure units are properly typed
-        units: tool.units?.map((unit: any) => ({
+        units: tool.units?.map((unit) => ({
           id: unit.id,
           displayId: unit.displayId,
           unitNumber: unit.unitNumber,
@@ -119,10 +158,10 @@ const fetchMaterials = async (searchQuery: string = ''): Promise<Material[]> => 
     if (searchQuery) params.append('search', searchQuery);
 
     const response = await fetch(`/api/materials?${params.toString()}`);
-    const result = await response.json();
+    const result: ApiResponse<Material[]> = await response.json();
 
-    if (result.success) {
-      return result.data.map((material: any) => ({
+    if (result.success && result.data) {
+      return result.data.map((material) => ({
         ...material,
         type: 'material' as const
       }));
@@ -133,15 +172,6 @@ const fetchMaterials = async (searchQuery: string = ''): Promise<Material[]> => 
     return [];
   }
 };
-const getConditionColor = (condition: string) => {
-  switch (condition.toLowerCase()) {
-    case 'excellent': return 'bg-green-100 text-green-800 border-green-200';
-    case 'good': return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'fair': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'poor': return 'bg-red-100 text-red-800 border-red-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState("tools");
@@ -150,10 +180,10 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarType, setSidebarType] = useState<'create' | 'edit' | 'process' | 'delete'>('create');
-  const [editItem, setEditItem] = useState<any>(null);
+  const [editItem, setEditItem] = useState<Tool | Material | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   const allItems = [...tools, ...materials];
@@ -208,8 +238,8 @@ export default function Inventory() {
 
   const allowedToolNames = ['Peralatan Lapangan', 'Peralatan Kantor', 'Peralatan Jaringan'];
   const allowedMaterialNames = ['Material Lapangan', 'Material Kantor', 'Material Jaringan'];
-  const toolCategories = categories.filter((cat: any) => cat.type === 'TOOL' && allowedToolNames.includes(cat.name));
-  const materialCategories = categories.filter((cat: any) => cat.type === 'MATERIAL' && allowedMaterialNames.includes(cat.name));
+  const toolCategories = categories.filter((cat) => cat.type === 'TOOL' && allowedToolNames.includes(cat.name));
+  const materialCategories = categories.filter((cat) => cat.type === 'MATERIAL' && allowedMaterialNames.includes(cat.name));
 
   // Load data on component mount and search change
   useEffect(() => {
@@ -279,7 +309,7 @@ export default function Inventory() {
     setSidebarOpen(true);
   };
 
-  const handleEditClick = (item: any) => {
+  const handleEditClick = (item: Tool | Material) => {
     console.log('Edit item clicked:', item);
 
     // Ensure we have complete data for editing
@@ -312,42 +342,42 @@ export default function Inventory() {
     setSidebarOpen(true);
   };
 
-  const handleFormSubmit = async (formData: any) => {
+  const handleFormSubmit = async (formData: FormData) => {
     try {
       let response, result;
       // CREATE
       if (sidebarType === 'create') {
         // Pisahkan tools dan materials jika mixed
-        const toolsToCreate = (formData.items || []).filter((item: any) => item.type === 'tool');
-        const materialsToCreate = (formData.items || []).filter((item: any) => item.type === 'material');
+        const toolsToCreate = (formData.items as Record<string, unknown>[] || []).filter((item) => item.type === 'tool');
+        const materialsToCreate = (formData.items as Record<string, unknown>[] || []).filter((item) => item.type === 'material');
 
         // Helper untuk mapping category name ke ID jika perlu
         // Asumsi: formData.categories adalah array kategori { id, name }
         // Gunakan state categories yang sudah di-fetch
-        const getCategoryId = (category: any, type: 'TOOL' | 'MATERIAL') => {
+        const getCategoryId = (category: unknown, type: 'TOOL' | 'MATERIAL') => {
           if (typeof category === 'string' && category.match(/^\w{8,}$/)) return category; // sudah ID
-          const found = categories.find((cat: any) => cat.name === category && cat.type === type);
+          const found = categories.find((cat) => cat.name === category && cat.type === type);
           return found ? found.id : category;
         };
 
         // Helper untuk mapping payload agar sesuai backend
-        const mapToolPayload = (item: any) => ({
-          name: item.name,
+        const mapToolPayload = (item: Record<string, unknown>) => ({
+          name: item.name as string,
           categoryId: getCategoryId(item.category, 'TOOL'),
-          totalQuantity: item.quantity,
-          availableQuantity: item.quantity, // wajib dikirim, default sama dengan total
-          condition: (item.condition ? item.condition : 'GOOD').toUpperCase(), // enum huruf besar
-          location: item.location || '',
-          supplier: item.supplier || ''
+          totalQuantity: item.quantity as number,
+          availableQuantity: item.quantity as number, // wajib dikirim, default sama dengan total
+          condition: (item.condition ? (item.condition as string).toUpperCase() : 'GOOD'), // enum huruf besar
+          location: item.location as string || '',
+          supplier: item.supplier as string || ''
         });
-        const mapMaterialPayload = (item: any) => ({
-          name: item.name,
+        const mapMaterialPayload = (item: Record<string, unknown>) => ({
+          name: item.name as string,
           categoryId: getCategoryId(item.category, 'MATERIAL'),
-          currentQuantity: item.quantity,
-          thresholdQuantity: item.threshold || 0,
-          unit: item.unit || '',
-          location: item.location || '',
-          supplier: item.supplier || ''
+          currentQuantity: item.quantity as number,
+          thresholdQuantity: item.threshold as number || 0,
+          unit: item.unit as string || '',
+          location: item.location as string || '',
+          supplier: item.supplier as string || ''
         });
         
         // Kirim satu per satu agar error lebih jelas
@@ -402,9 +432,9 @@ export default function Inventory() {
             if (!result.success) {
               throw new Error(result.message || 'Failed to process borrowing');
             }
-          } catch (error: any) {
+          } catch (error) {
             console.error('Borrowing error:', error);
-            throw new Error(error.message || 'Failed to process borrowing');
+            throw new Error(error instanceof Error ? error.message : 'Failed to process borrowing');
           }
         } else if (formData.type === 'consume') {
           // Transform payload sesuai schema
@@ -431,9 +461,9 @@ export default function Inventory() {
             if (!result.success) {
               throw new Error(result.message || 'Failed to process consumption');
             }
-          } catch (error: any) {
+          } catch (error) {
             console.error('Consumption error:', error);
-            throw new Error(error.message || 'Failed to process consumption');
+            throw new Error(error instanceof Error ? error.message : 'Failed to process consumption');
           }
         } else {
           throw new Error('Invalid transaction type');
@@ -499,8 +529,8 @@ export default function Inventory() {
       ]);
       setTools(toolsData);
       setMaterials(materialsData);
-    } catch (error: any) {
-      alert(error.message || 'Operation failed');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Operation failed');
       console.error('Inventory CRUD error:', error);
     }
   };

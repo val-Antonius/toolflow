@@ -6,13 +6,21 @@ import {
   handleDatabaseError
 } from '@/lib/api-utils'
 
+// First, let's add an interface for the values structure
+interface ConditionValues {
+  condition?: string;
+  notes?: string;
+}
+
 // GET /api/tools/units/[unitId]/history - Get unit borrowing and condition history
 export async function GET(
   request: NextRequest,
-  { params }: { params: { unitId: string } }
+  { params }: { params: Promise<{ unitId: string }> }
 ) {
   try {
-    const unitId = params.unitId
+    // Await params in Next.js 15+
+    const resolvedParams = await params
+    const unitId = resolvedParams.unitId
 
     // Get unit details with complete history
     const unit = await prisma.toolUnit.findUnique({
@@ -60,8 +68,8 @@ export async function GET(
         entityType: 'TOOL',
         entityId: unit.toolId,
         metadata: {
-          path: ['unitId'],
-          equals: unitId
+          path: 'unitId', 
+          string_contains: unitId // Using string_contains instead of equals for JSON field
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -82,9 +90,9 @@ export async function GET(
       ...conditionHistory.map(log => ({
         date: log.createdAt,
         type: 'CONDITION_CHANGE',
-        oldCondition: log.oldValues?.condition,
-        newCondition: log.newValues?.condition,
-        notes: log.newValues?.notes
+        oldCondition: (log.oldValues as ConditionValues)?.condition,
+        newCondition: (log.newValues as ConditionValues)?.condition,
+        notes: (log.newValues as ConditionValues)?.notes
       }))
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 

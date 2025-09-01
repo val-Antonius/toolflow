@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { successResponse, handleDatabaseError } from '@/lib/api-utils'
 
+interface MonthData {
+  month: string
+  startDate: Date
+  endDate: Date
+}
+
 // GET /api/dashboard/charts - Get chart data for dashboard analytics
 export async function GET(request: NextRequest) {
   try {
@@ -52,12 +58,12 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching chart data:', error)
-    return handleDatabaseError(error as any)
+    return handleDatabaseError(error as Error)
   }
 }
 
 // Get tools comparison data
-async function getToolsComparisonData(monthsData: any[]) {
+async function getToolsComparisonData(monthsData: MonthData[]) {
   const data = []
   
   for (const monthInfo of monthsData) {
@@ -91,7 +97,7 @@ async function getToolsComparisonData(monthsData: any[]) {
 }
 
 // Get materials comparison data
-async function getMaterialsComparisonData(monthsData: any[]) {
+async function getMaterialsComparisonData(monthsData: MonthData[]) {
   const data = []
   
   for (const monthInfo of monthsData) {
@@ -136,7 +142,7 @@ async function getMaterialsComparisonData(monthsData: any[]) {
 }
 
 // Get borrowing activities comparison data
-async function getBorrowingComparisonData(monthsData: any[]) {
+async function getBorrowingComparisonData(monthsData: MonthData[]) {
   const data = []
   
   for (const monthInfo of monthsData) {
@@ -184,7 +190,7 @@ async function getBorrowingComparisonData(monthsData: any[]) {
 }
 
 // Get tool conditions comparison data
-async function getConditionsComparisonData(monthsData: any[]) {
+async function getConditionsComparisonData(monthsData: MonthData[]) {
   const data = []
   
   for (const monthInfo of monthsData) {

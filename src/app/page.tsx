@@ -18,6 +18,7 @@ import {
 
 // Types
 interface KPIData {
+  id: string;
   title: string;
   value: string;
   icon: string;
@@ -73,9 +74,12 @@ const fetchKPIs = async (): Promise<KPIData[]> => {
     }
 
     if (result.success && Array.isArray(result.data)) {
-      return result.data.map((kpi: any) => ({
-        ...kpi,
-        icon: getIcon(kpi.icon)
+      return result.data.map((kpi, index) => ({
+        id: `kpi-${index}`,
+        title: kpi.title,
+        value: kpi.value,
+        icon: getIcon(kpi.icon),
+        description: kpi.description
       }));
     }
 
@@ -221,9 +225,9 @@ export default function Dashboard() {
             className="flex space-x-4 transition-transform duration-500 ease-in-out"
             style={{ width: `${kpiData.length * 296}px` }}
           >
-            {kpiData.map((kpi, index) => (
+            {kpiData.map((kpi) => (
               <KPICard
-                key={index}
+                key={kpi.id}
                 title={kpi.title}
                 value={kpi.value}
                 icon={kpi.icon}
@@ -234,9 +238,9 @@ export default function Dashboard() {
 
           {/* Dots Indicator */}
           <div className="flex justify-center space-x-2 mt-4">
-            {kpiData.map((_, index) => (
+            {kpiData.map((kpi, index) => (
               <button
-                key={index}
+                key={kpi.id}
                 onClick={() => setCurrentSlide(index)}
                 className={cn(
                   "w-2 h-2 rounded-full transition-all duration-300",
@@ -273,7 +277,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activities.map((activity, index) => (
+                  {activities.map((activity) => (
                     <tr
                       key={activity.id}
                       className="border-b border-gray-100 hover:bg-white/50 cursor-pointer transition-all-smooth"

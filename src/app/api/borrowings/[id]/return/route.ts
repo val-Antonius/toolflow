@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ReturnBorrowingSchema } from '@/lib/validations'
+import { ReturnBorrowingSchema, type ReturnBorrowingInput } from '@/lib/validations'
+import type { BorrowingItem, BorrowingItemUnit, Tool, ToolUnit } from '@prisma/client'
 import {
   successResponse,
   errorResponse,
@@ -8,6 +9,17 @@ import {
   handleDatabaseError,
   logActivity
 } from '@/lib/api-utils'
+
+type BorrowingItemWithRelations = BorrowingItem & {
+  tool: Tool
+  borrowedUnits: (BorrowingItemUnit & {
+    toolUnit: ToolUnit
+  })[]
+}
+
+type BorrowingItemUnitWithRelations = BorrowingItemUnit & {
+  toolUnit: ToolUnit
+}
 
 // POST /api/borrowings/[id]/return - Process return of borrowed items
 export async function POST(
@@ -53,21 +65,21 @@ export async function POST(
     }
 
     // Validate return items
-    const returnItemIds = items.map((item: any) => item.borrowingItemId)
-    const borrowingItemIds = (borrowing.borrowingItems || []).map((item: any) => item.id)
+    const returnItemIds = items.map((item: ReturnBorrowingInput['items'][0]) => item.borrowingItemId)
+    const borrowingItemIds = (borrowing.borrowingItems || []).map((item: BorrowingItemWithRelations) => item.id)
 
-    const invalidItems = returnItemIds.filter((id: any) => !borrowingItemIds.includes(id))
+    const invalidItems = returnItemIds.filter((id: string) => !borrowingItemIds.includes(id))
     if (invalidItems.length > 0) {
       return errorResponse(`Invalid borrowing item IDs: ${invalidItems.join(', ')}`, 400)
     }
 
     // Check for already returned items
     const alreadyReturned = (borrowing.borrowingItems || []).filter(
-      (item: any) => returnItemIds.includes(item.id) && item.returnDate
+      (item: BorrowingItemWithRelations) => returnItemIds.includes(item.id) && item.returnDate
     )
     if (alreadyReturned.length > 0) {
       return errorResponse(
-        `Items already returned: ${alreadyReturned.map((item: any) => item.tool.name).join(', ')}`,
+        `Items already returned: ${alreadyReturned.map((item: BorrowingItemWithRelations) => item.tool.name).join(', ')}`,
         400
       )
     }
@@ -78,7 +90,7 @@ export async function POST(
 
       for (const returnItem of items) {
         const borrowingItem = (borrowing.borrowingItems || []).find(
-          (item: any) => item.id === returnItem.borrowingItemId
+          (item: BorrowingItemWithRelations) => item.id === returnItem.borrowingItemId
         )
 
         if (!borrowingItem) continue
@@ -86,7 +98,7 @@ export async function POST(
         // Process unit returns
         for (const unitReturn of returnItem.unitReturns) {
           const borrowingItemUnit = borrowingItem.borrowedUnits.find(
-            (unit: any) => unit.id === unitReturn.borrowingItemUnitId
+            (unit: BorrowingItemUnitWithRelations) => unit.id === unitReturn.borrowingItemUnitId
           );
 
           if (!borrowingItemUnit) continue;
@@ -104,7 +116,7 @@ export async function POST(
           await tx.toolUnit.update({
             where: { id: borrowingItemUnit.toolUnitId },
             data: {
-              condition: unitReturn.returnCondition as any,
+              condition: unitReturn.returnCondition,
               isAvailable: true
             }
           });
@@ -145,7 +157,7 @@ export async function POST(
         where: { borrowingTransactionId: id }
       })
 
-      const allReturned = allBorrowingItems.every((item: any) => item.returnDate !== null)
+      const allReturned = allBorrowingItems.every((item: BorrowingItem) => item.returnDate !== null)
 
       // Update borrowing status if all items returned
       let updatedBorrowing = borrowing
@@ -160,7 +172,12 @@ export async function POST(
           include: {
             borrowingItems: {
               include: {
-                tool: true
+                tool: true,
+                borrowedUnits: {
+                  include: {
+                    toolUnit: true
+                  }
+                }
               }
             }
           }
@@ -181,7 +198,7 @@ export async function POST(
       {
         returnedItemsCount: returnResults.returnedItems.length,
         allItemsReturned: returnResults.allReturned,
-        returnedItems: returnResults.returnedItems.map((item: any) => ({
+        returnedItems: returnResults.returnedItems.map((item: BorrowingItemWithRelations) => ({
           toolName: item.tool.name,
           quantity: item.quantity,
           condition: item.returnCondition

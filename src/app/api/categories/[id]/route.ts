@@ -62,8 +62,11 @@ export async function PUT(
 
     // Check if name is being changed and if it conflicts
     if (validation.data.name && validation.data.name !== existingCategory.name) {
-      const nameConflict = await prisma.category.findUnique({
-        where: { name: validation.data.name },
+      const nameConflict = await prisma.category.findFirst({
+        where: { 
+          name: validation.data.name,
+          type: existingCategory.type  // Include type in the query
+        }
       })
 
       if (nameConflict) {

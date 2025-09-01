@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Button } from './button';
-import { Input } from './input';
 import { Label } from './label';
 import { Textarea } from './textarea';
 import { ConditionPicker } from './condition-picker';
@@ -27,6 +26,29 @@ interface BorrowedItem {
   originalCondition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
 }
 
+interface FormData {
+  newDueDate?: string;
+  reason?: string;
+  notes?: string;
+}
+
+interface ReturnFormData {
+  items: Array<{
+    borrowingItemId: string;
+    unitReturns: Array<{
+      borrowingItemUnitId: string;
+      returnCondition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+      notes?: string;
+    }>;
+  }>;
+  notes?: string;
+}
+
+interface ExtendFormData {
+  newDueDate: string;
+  reason: string;
+}
+
 interface SidebarFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,15 +60,11 @@ interface SidebarFormProps {
     dueDate: string;
     purpose: string;
   };
-  onSubmit: (formData: any) => void;
+  onSubmit: (formData: ReturnFormData | ExtendFormData | unknown) => void;
 }
 
 export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }: SidebarFormProps) {
-  const [formData, setFormData] = useState<{
-    newDueDate?: string;
-    reason?: string;
-    notes?: string;
-  }>({});
+  const [formData, setFormData] = useState<FormData>({});
   const [itemConditions, setItemConditions] = useState<Record<string, Array<{
     condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
     notes?: string;
@@ -325,7 +343,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const newConditions: any = {};
+                            const newConditions: Record<string, Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>> = {};
                             borrowing.items.forEach((item: BorrowedItem) => {
                               newConditions[item.id] = [{ condition: 'GOOD', notes: 'Returned in good condition' }];
                             });
@@ -340,7 +358,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const newConditions: any = {};
+                            const newConditions: Record<string, Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>> = {};
                             borrowing.items.forEach((item: BorrowedItem) => {
                               newConditions[item.id] = [{ condition: item.originalCondition, notes: 'Returned in original condition' }];
                             });
@@ -355,7 +373,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            const newConditions: any = {};
+                            const newConditions: Record<string, Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>> = {};
                             borrowing.items.forEach((item: BorrowedItem) => {
                               newConditions[item.id] = [{ condition: 'EXCELLENT', notes: 'Returned in excellent condition' }];
                             });
@@ -387,7 +405,6 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           key={item.id}
                           itemName={item.name}
                           units={item.units}
-                          currentCondition={item.originalCondition}
                           onConditionsChange={(conditions: Array<{ condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; notes?: string }>) => {
                             setItemConditions((prev) => ({
                               ...prev,
@@ -423,7 +440,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setFormData((prev: any) => ({ ...prev, notes: template }))}
+                            onClick={() => setFormData((prev) => ({ ...prev, notes: template }))}
                             className={cn(
                               "text-xs transition-all duration-200",
                               formData.notes === template
@@ -443,7 +460,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         id="notes"
                         placeholder="Any additional notes about the returned items..."
                         value={formData.notes || ''}
-                        onChange={(e) => setFormData((prev: any) => ({ ...prev, notes: e.target.value }))}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                         className="mt-2 min-h-[80px]"
                       />
                       <div className="flex justify-between items-center mt-2">
@@ -576,7 +593,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                             variant={isSelected ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
-                              setFormData((prev: any) => ({
+                              setFormData((prev) => ({
                                 ...prev,
                                 newDueDate: newDate.toISOString().slice(0, 16)
                               }));
@@ -610,7 +627,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         id="newDueDate"
                         label="New Due Date & Time"
                         value={formData.newDueDate || ''}
-                        onChange={(value) => setFormData((prev: any) => ({
+                        onChange={(value) => setFormData((prev) => ({
                           ...prev,
                           newDueDate: value
                         }))}
@@ -668,7 +685,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => setFormData((prev: any) => ({ ...prev, reason: template }))}
+                            onClick={() => setFormData((prev) => ({ ...prev, reason: template }))}
                             className={cn(
                               "text-xs transition-all duration-200",
                               formData.reason === template
@@ -688,7 +705,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         id="reason"
                         placeholder="Please provide a detailed reason for extending the due date..."
                         value={formData.reason || ''}
-                        onChange={(e) => setFormData((prev: any) => ({ ...prev, reason: e.target.value }))}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
                         className="mt-2 min-h-[80px]"
                         required
                       />

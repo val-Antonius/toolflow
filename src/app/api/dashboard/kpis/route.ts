@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { successResponse, handleDatabaseError } from '@/lib/api-utils'
 
 // GET /api/dashboard/kpis - Get dashboard KPI metrics
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     console.log('KPI API: Starting to fetch dashboard KPIs...')
 
@@ -74,13 +73,13 @@ export async function GET(request: NextRequest) {
     return successResponse(kpis)
   } catch (error) {
     console.error('Error fetching dashboard KPIs:', error)
-    if (typeof error === 'object' && error !== null) {
+    if (error instanceof Error) {
       console.error('Error details:', {
-        message: (error as any).message,
-        code: (error as any).code,
-        stack: (error as any).stack
+        message: error.message,
+        code: (error as Error & { code?: string }).code,
+        stack: error.stack
       })
     }
-    return handleDatabaseError(error as any)
+    return handleDatabaseError(error)
   }
 }

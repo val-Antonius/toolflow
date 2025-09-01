@@ -20,6 +20,15 @@ import {
   CheckCircle
 } from 'lucide-react';
 
+interface ToolUnit {
+  id: string;
+  displayId?: string;
+  unitNumber: number;
+  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+  isAvailable: boolean;
+  notes?: string;
+}
+
 interface InventoryItem {
   id: string;
   name: string;
@@ -28,14 +37,7 @@ interface InventoryItem {
   quantity?: number;
   unit?: string;
   condition?: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  units?: Array<{
-    id: string;
-    displayId?: string;
-    unitNumber: number;
-    condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-    isAvailable: boolean;
-    notes?: string;
-  }>;
+  units?: ToolUnit[];
   available?: number;
   total?: number;
   threshold?: number;
@@ -57,10 +59,6 @@ interface SelectedItem extends InventoryItem {
   updatedAt?: string;
 }
 
-interface NewUnit {
-  condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  notes?: string;
-}
 
 interface NewItem {
   name: string;
@@ -71,6 +69,7 @@ interface NewItem {
   threshold?: number;
   location?: string;
   supplier?: string;
+  units?: ToolUnit[];
   // For tools: condition distribution
   conditionDistribution?: {
     excellent: number;
@@ -97,7 +96,7 @@ interface SidebarFormProps {
   type: 'create' | 'edit' | 'process' | 'delete';
   selectedItems?: SelectedItem[];
   editItem?: InventoryItem;
-  onSubmit: (formData: any) => void;
+  onSubmit: (formData: unknown) => void;
   toolCategories?: Array<{ id: string; name: string; type: string }>;
   materialCategories?: Array<{ id: string; name: string; type: string }>;
 }
@@ -114,7 +113,7 @@ const units = [
 
 
 export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], editItem, onSubmit, toolCategories = [], materialCategories = [] }: SidebarFormProps) {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [newItems, setNewItems] = useState<NewItem[]>([
     {
       name: '',
@@ -490,7 +489,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   };
 
   // Smart unit selection functions
-  const selectUnitsByQuantity = (toolId: string, quantity: number, availableUnits: any[], preferredCondition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' = 'EXCELLENT') => {
+  const selectUnitsByQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]) => {
     // Sort units by condition preference (excellent first, then good, etc.)
     const conditionPriority = { 'EXCELLENT': 4, 'GOOD': 3, 'FAIR': 2, 'POOR': 1 };
     const sortedUnits = [...availableUnits].sort((a, b) => {
@@ -508,7 +507,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const selectUnitsByCondition = (toolId: string, condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', availableUnits: any[]) => {
+  const selectUnitsByCondition = (toolId: string, condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', availableUnits: ToolUnit[]) => {
     const unitsWithCondition = availableUnits.filter(unit => unit.condition === condition);
     const selectedUnitIds = unitsWithCondition.map(unit => unit.id);
 
@@ -539,7 +538,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }
   };
 
-  const updateBorrowQuantity = (toolId: string, quantity: number, availableUnits: any[]) => {
+  const updateBorrowQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]) => {
     setBorrowQuantities(prev => ({
       ...prev,
       [toolId]: quantity
@@ -577,19 +576,20 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const updateNewItem = (index: number, field: string, value: any) => {
+  const updateNewItem = (index: number, field: string, value: unknown) => {
     setNewItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
 
       if (field === 'type') {
         // Reset item for new type
+        const newType = value as 'tool' | 'material';
         return {
           ...item,
-          type: value,
-          category: value === 'tool' ? (toolCategories[0]?.id || '') : (materialCategories[0]?.id || ''),
-          defaultCondition: value === 'tool' ? 'GOOD' : undefined,
-          useDefaultCondition: value === 'tool' ? true : undefined,
-          conditionDistribution: value === 'tool' ? {
+          type: newType,
+          category: newType === 'tool' ? (toolCategories[0]?.id || '') : (materialCategories[0]?.id || ''),
+          defaultCondition: newType === 'tool' ? 'GOOD' : undefined,
+          useDefaultCondition: newType === 'tool' ? true : undefined,
+          conditionDistribution: newType === 'tool' ? {
             excellent: 0,
             good: 1,
             fair: 0,
@@ -599,7 +599,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       }
 
       if (field === 'quantity' && item.type === 'tool') {
-        const newQuantity = parseInt(value) || 1;
+        const newQuantity = parseInt(value as string) || 1;
 
         if (item.useDefaultCondition) {
           // If using default condition, update the distribution accordingly
@@ -662,23 +662,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }
   };
 
-  const updateUnitCondition = (itemIndex: number, unitIndex: number, condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') => {
-    setNewItems(prev => prev.map((item, i) => {
-      if (i !== itemIndex) return item;
-      const updatedUnits = [...(item.units || [])];
-      updatedUnits[unitIndex] = { ...updatedUnits[unitIndex], condition };
-      return { ...item, units: updatedUnits };
-    }));
-  };
 
-  const updateUnitNote = (itemIndex: number, unitIndex: number, notes: string) => {
-    setNewItems(prev => prev.map((item, i) => {
-      if (i !== itemIndex) return item;
-      const updatedUnits = [...(item.units || [])];
-      updatedUnits[unitIndex] = { ...updatedUnits[unitIndex], notes };
-      return { ...item, units: updatedUnits };
-    }));
-  };
 
   const renderCreateForm = () => (
     <div className="space-y-6">
@@ -1018,14 +1002,14 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <Input
           id="name"
           value={formData.name || ''}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
+          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
           required
         />
       </div>
 
       <div>
         <Label htmlFor="category">Kategori</Label>
-        <Select value={formData.category} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, category: value }))}>
+        <Select value={formData.category} onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}>
           <SelectTrigger>
             <SelectValue placeholder="Pilih kategori" />
           </SelectTrigger>
@@ -1044,7 +1028,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             id="quantity"
             type="number"
             value={formData.quantity || 1}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
             min="1"
             required
           />
@@ -1053,7 +1037,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         {editItem?.type === 'material' && (
           <div>
             <Label htmlFor="unit">Unit</Label>
-            <Select value={formData.unit} onValueChange={(value) => setFormData((prev: any) => ({ ...prev, unit: value }))}>
+            <Select value={formData.unit} onValueChange={(value) => setFormData((prev) => ({ ...prev, unit: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -1074,7 +1058,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <Input
           id="location"
           value={formData.location || ''}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, location: e.target.value }))}
+          onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, location: e.target.value }))}
           placeholder="Gudang, Rak, dll"
         />
       </div>
@@ -1084,7 +1068,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <Input
           id="supplier"
           value={formData.supplier || ''}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, supplier: e.target.value }))}
+          onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, supplier: e.target.value }))}
           placeholder="Nama supplier (opsional)"
         />
       </div>
@@ -1096,7 +1080,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             id="threshold"
             type="number"
             value={formData.threshold || 10}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, threshold: parseInt(e.target.value) || 10 }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, threshold: parseInt(e.target.value) || 10 }))}
             min="1"
           />
         </div>
@@ -1238,7 +1222,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             if (!acc[unit.condition]) acc[unit.condition] = [];
             acc[unit.condition].push(unit);
             return acc;
-          }, {} as Record<string, any[]>);
+          }, {} as Record<string, ToolUnit[]>);
 
           return (
             <div key={item.id} className="p-5 border rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-200">
@@ -1324,7 +1308,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                             value="EXCELLENT"
                             onValueChange={(condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR') => {
                               if (borrowQuantity > 0) {
-                                selectUnitsByQuantity(item.id, borrowQuantity, availableUnits, condition);
+                                selectUnitsByCondition(item.id, condition, availableUnits);
                               }
                             }}
                           >
@@ -1349,7 +1333,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => selectUnitsByCondition(item.id, condition as any, availableUnits)}
+                            onClick={() => selectUnitsByCondition(item.id, condition as 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', availableUnits)}
                             className="text-xs h-7 px-2"
                           >
                             All {condition} ({units.length})
@@ -1465,7 +1449,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
                                 <Label htmlFor={`unit-${unit.id}`} className="text-xs font-medium text-gray-900 cursor-pointer">
-                                  {(unit as any).displayId || `#${unit.unitNumber}`}
+                                  {(unit as ToolUnit).displayId || `#${unit.unitNumber}`}
                                 </Label>
                                 <Badge
                                   className={cn(
@@ -1841,7 +1825,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center space-x-2">
                     <AlertTriangle className="w-4 h-4 text-red-600" />
                     <div className="text-sm text-red-800">
-                      <span className="font-medium">High consumption warning:</span> You're consuming {percentageUsed.toFixed(1)}% of available stock.
+                      <span className="font-medium">High consumption warning:</span> You are consuming {percentageUsed.toFixed(1)}% of available stock.
                     </div>
                   </div>
                 )}
@@ -1882,7 +1866,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             </div>
           </div>
 
-          <Tabs value={processType} onValueChange={(value: any) => setProcessType(value)} className="space-y-4">
+          <Tabs value={processType} onValueChange={(value: 'borrow' | 'consume') => setProcessType(value)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2 h-12">
               <TabsTrigger value="borrow" disabled={!hasTools} className="flex items-center space-x-2 h-10">
                 <Wrench className="w-4 h-4" />

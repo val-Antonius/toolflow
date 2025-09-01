@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { iconRegistry, IconName } from '@/lib/icon-registry';
+import { IconName } from '@/lib/icon-registry';
 
 // Report Configuration System - Revolutionary Dynamic Context-Aware Filtering
 export interface ReportColumn {
@@ -11,7 +11,7 @@ export interface ReportColumn {
   sortable?: boolean;
   filterable?: boolean;
   width?: string;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: unknown, row: RowData) => React.ReactNode;
 }
 
 export interface FilterConfig {
@@ -21,7 +21,7 @@ export interface FilterConfig {
   options?: Array<{ value: string; label: string }>;
   required?: boolean;
   dependsOn?: string;
-  conditional?: (filters: any) => boolean;
+  conditional?: (filters: FilterValues) => boolean;
   placeholder?: string;
 }
 
@@ -38,6 +38,34 @@ export interface ReportTypeConfig {
   supportsExport: boolean;
   apiEndpoint: string;
   color: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface RowData {
+  displayId?: string;
+  id?: string;
+  available?: number;
+  availableQuantity?: number;
+  total?: number;
+  totalQuantity?: number;
+  unit?: string;
+  [key: string]: unknown;
+}
+
+export interface ListItem {
+  name?: string;
+  toolName?: string;
+  materialName?: string;
+  quantity?: number;
+}
+
+export interface FilterValues {
+  [key: string]: string | number | boolean | null;
 }
 
 // Status Badge Renderer
@@ -87,14 +115,14 @@ const StatusBadge = ({ status, type }: { status: string; type: string }) => {
 };
 
 // Items List Renderer
-const ItemsList = ({ items, maxShow = 2 }: { items: any[]; maxShow?: number }) => {
+const ItemsList = ({ items, maxShow = 2 }: { items: ListItem[]; maxShow?: number }) => {
   if (!items || items.length === 0) return <span className="text-gray-500">-</span>;
-  
+
   return (
     <div className="space-y-1">
-      {items.slice(0, maxShow).map((item: any, idx: number) => (
+      {items.slice(0, maxShow).map((item: ListItem, idx: number) => (
         <div key={idx} className="text-xs text-gray-600">
-          {item.name || item.toolName || item.materialName} 
+          {item.name || item.toolName || item.materialName}
           {item.quantity && ` (${item.quantity}x)`}
         </div>
       ))}
@@ -179,8 +207,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         sortable: true,
         width: '100px',
         render: (value, row) => {
-          const displayId = (row as any).displayId;
-          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+          const displayId = row.displayId;
+          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
         }
       },
       { key: 'borrower', label: 'Borrower', type: 'text', sortable: true, width: '150px' },
@@ -269,8 +297,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         sortable: true,
         width: '100px',
         render: (value, row) => {
-          const displayId = (row as any).displayId;
-          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+          const displayId = row.displayId;
+          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
         }
       },
       { key: 'consumer', label: 'Consumer', type: 'text', sortable: true, width: '150px' },
@@ -363,8 +391,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         sortable: true,
         width: '100px',
         render: (value, row) => {
-          const displayId = (row as any).displayId;
-          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+          const displayId = row.displayId;
+          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
         }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
@@ -450,8 +478,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         sortable: true,
         width: '100px',
         render: (value, row) => {
-          const displayId = (row as any).displayId;
-          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+          const displayId = row.displayId;
+          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
         }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
@@ -541,8 +569,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         sortable: true,
         width: '100px',
         render: (value, row) => {
-          const displayId = (row as any).displayId;
-          return <span className="font-mono text-xs">{displayId || value.slice(0, 8) + '...'}</span>
+          const displayId = row.displayId;
+          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
         }
       },
       {
@@ -603,7 +631,7 @@ export const getAllReportTypes = (): ReportTypeConfig[] => {
 };
 
 // Filter validation and processing
-export const validateFilters = (reportType: string, filters: any): { isValid: boolean; errors: string[] } => {
+export const validateFilters = (reportType: string, filters: FilterValues): { isValid: boolean; errors: string[] } => {
   const config = getReportConfig(reportType);
   if (!config) return { isValid: false, errors: ['Invalid report type'] };
 
@@ -642,7 +670,7 @@ export const populateFilterOptions = async (reportType: string): Promise<ReportT
   // Populate filters with category options
   try {
     const response = await fetch('/api/categories');
-    const categories = await response.json();
+    const categories: { data: Category[] } = await response.json();
 
     populatedConfig.filters = config.filters.map(filter => {
       if (filter.key === 'category') {
@@ -651,7 +679,7 @@ export const populateFilterOptions = async (reportType: string): Promise<ReportT
           options: [
             { value: 'all', label: 'All Categories' },
             ...categories.data
-              .filter((cat: any) => {
+              .filter((cat: Category) => {
                 // Filter categories based on report type
                 if (reportType === 'tools' || reportType === 'borrowing') {
                   return cat.type === 'TOOL';
@@ -661,7 +689,7 @@ export const populateFilterOptions = async (reportType: string): Promise<ReportT
                 }
                 return true; // For transaction-history, show all
               })
-              .map((cat: any) => ({ value: cat.id, label: cat.name }))
+              .map((cat: Category) => ({ value: cat.id, label: cat.name }))
           ]
         };
       }

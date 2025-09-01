@@ -17,7 +17,12 @@ interface DateRangePickerProps {
   className?: string;
 }
 
-const presetRanges = [
+interface PresetRange {
+  label: string;
+  value: number | string;
+}
+
+const presetRanges: PresetRange[] = [
   { label: 'Last 7 days', value: 7 },
   { label: 'Last 30 days', value: 30 },
   { label: 'Last 90 days', value: 90 },
@@ -28,11 +33,11 @@ const presetRanges = [
 export function DateRangePicker({ value, onChange, className }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handlePresetSelect = (preset: any) => {
+  const handlePresetSelect = (preset: PresetRange) => {
     const today = new Date();
     let from: Date;
-    let to: Date = today;
-
+    const to: Date = today;
+    
     if (typeof preset.value === 'number') {
       from = new Date(today.getTime() - preset.value * 24 * 60 * 60 * 1000);
     } else if (preset.value === 'month') {

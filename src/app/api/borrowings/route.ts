@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
+import { ToolCondition, BorrowingTransactionStatus } from '@prisma/client'
 import { CreateBorrowingSchema } from '@/lib/validations'
 
 import {
@@ -10,8 +11,7 @@ import {
   logActivity,
   buildSearchFilter,
   buildSortOrder,
-  getPaginationParams,
-  checkToolAvailability
+  getPaginationParams
 } from '@/lib/api-utils'
 import { generateBorrowingDisplayId } from '@/lib/display-id-utils'
 
@@ -22,7 +22,7 @@ type ToolWithUnits = {
   units: Array<{
     id: string;
     unitNumber: number;
-    condition: string;
+    condition: ToolCondition;
     isAvailable: boolean;
   }>;
 };
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // Build filters
     const where: Prisma.BorrowingTransactionWhereInput = {
       ...buildSearchFilter(search, ['purpose', 'borrowerName']),
-      ...(status && { status: status as any })
+      ...(status && { status: status as BorrowingTransactionStatus })
     }
 
     // Auto-update overdue status
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
             borrowingTransactionId: newBorrowing.id,
             toolId: item.toolId,
             quantity: item.units.length,
-            originalCondition: 'GOOD',
+            originalCondition: ToolCondition.GOOD,
             notes: item.notes
           }
         });
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
             data: {
               borrowingItemId: borrowingItem.id,
               toolUnitId: unit.id,
-              condition: unit.condition as any
+              condition: unit.condition
             }
           });
 

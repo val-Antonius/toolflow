@@ -3,20 +3,18 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ReportTypeConfig, getReportsByCategory } from '@/lib/report-config';
+import { getReportsByCategory } from '@/lib/report-config';
 import { getIconComponent } from '@/lib/icon-registry';
 import { cn } from '@/lib/utils';
 
 interface ReportTypeSelectorProps {
   selectedType?: string;
   onTypeSelect: (reportType: string) => void;
-  reportConfigs: ReportTypeConfig[];
 }
 
-export function ReportTypeSelector({ 
-  selectedType, 
-  onTypeSelect, 
-  reportConfigs 
+export function ReportTypeSelector({
+  selectedType,
+  onTypeSelect
 }: ReportTypeSelectorProps) {
   
   const categories = [

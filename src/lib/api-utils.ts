@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ZodError, ZodSchema } from 'zod'
 import { prisma } from './prisma'
+import { Prisma } from '@prisma/client'
+import type { InputJsonValue } from '@prisma/client/runtime/library'
+import type { NullableJsonNullValueInput } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
+
+// Query Parameter Types
+export type QueryParamValue = string | number | boolean | null | undefined
+export type QueryParams = Record<string, QueryParamValue>
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: string
@@ -16,6 +24,17 @@ export interface ApiResponse<T = any> {
   }
 }
 
+// Database Error Type
+export interface DatabaseError extends Error {
+  code?: string
+  meta?: Record<string, unknown>
+}
+
+// Activity Log Data Types
+export type ActivityEntityType = 'TOOL' | 'MATERIAL' | 'BORROWING_TRANSACTION' | 'CONSUMPTION_TRANSACTION' | 'USER' | 'CATEGORY'
+export type ActivityAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'BORROW' | 'RETURN' | 'CONSUME' | 'EXTEND'
+export type ActivityData = InputJsonValue | NullableJsonNullValueInput | undefined
+
 // Error Response Helper
 export function errorResponse(message: string, status: number = 400): NextResponse<ApiResponse> {
   return NextResponse.json(
@@ -25,19 +44,19 @@ export function errorResponse(message: string, status: number = 400): NextRespon
 }
 
 // Helper to convert Decimal fields to numbers for JSON serialization
-function convertDecimalFields(obj: any): any {
+function convertDecimalFields(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj
 
   if (Array.isArray(obj)) {
     return obj.map(convertDecimalFields)
   }
 
-  if (typeof obj === 'object' && obj.constructor === Object) {
-    const converted: any = {}
+  if (typeof obj === 'object' && obj !== null && obj.constructor === Object) {
+    const converted: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(obj)) {
       // Convert Decimal objects to numbers
-      if (value && typeof value === 'object' && 'toNumber' in value) {
-        converted[key] = Number(value)
+      if (value && typeof value === 'object' && 'toNumber' in value && typeof (value as Decimal).toNumber === 'function') {
+        converted[key] = Number((value as Decimal).toNumber())
       } else if (typeof value === 'object') {
         converted[key] = convertDecimalFields(value)
       } else {
@@ -57,10 +76,10 @@ export function successResponse<T>(
   pagination?: ApiResponse['pagination']
 ): NextResponse<ApiResponse<T>> {
   // Convert Decimal fields to numbers for JSON serialization
-  let convertedData = convertDecimalFields(data)
+  let convertedData = convertDecimalFields(data) as T
   // Ensure payload is always an object (never null)
   if (convertedData === null || convertedData === undefined) {
-    convertedData = {};
+    convertedData = {} as T;
   }
   return NextResponse.json({
     success: true,
@@ -95,9 +114,9 @@ export async function validateRequest<T>(
 }
 
 // Query Parameters Helper
-export function getQueryParams(request: NextRequest) {
+export function getQueryParams(request: NextRequest): QueryParams {
   const { searchParams } = new URL(request.url)
-  const params: Record<string, any> = {}
+  const params: QueryParams = {}
 
   searchParams.forEach((value, key) => {
     // Convert numeric strings to numbers
@@ -123,37 +142,39 @@ export function getPaginationParams(searchParams: URLSearchParams) {
 }
 
 // Database Error Handler
-export function handleDatabaseError(error: any): NextResponse<ApiResponse> {
+export function handleDatabaseError(error: unknown): NextResponse<ApiResponse> {
   console.error('Database error:', error)
 
+  const dbError = error as DatabaseError
+
   // Prisma specific errors
-  if (error.code === 'P2002') {
+  if (dbError.code === 'P2002') {
     return errorResponse('A record with this information already exists', 409)
   }
 
-  if (error.code === 'P2025') {
+  if (dbError.code === 'P2025') {
     return errorResponse('Record not found', 404)
   }
 
-  if (error.code === 'P2003') {
+  if (dbError.code === 'P2003') {
     return errorResponse('Related record not found', 400)
   }
 
   // Database connection errors
-  if (error.code === 'P1001') {
+  if (dbError.code === 'P1001') {
     return errorResponse('Database connection failed', 503)
   }
 
-  if (error.code === 'P1008') {
+  if (dbError.code === 'P1008') {
     return errorResponse('Database operation timeout', 504)
   }
 
   // Generic database errors
-  if (error.message && error.message.includes('connect')) {
+  if (dbError.message && dbError.message.includes('connect')) {
     return errorResponse('Database connection error', 503)
   }
 
-  if (error.message && error.message.includes('timeout')) {
+  if (dbError.message && dbError.message.includes('timeout')) {
     return errorResponse('Database operation timeout', 504)
   }
 
@@ -162,21 +183,21 @@ export function handleDatabaseError(error: any): NextResponse<ApiResponse> {
 
 // Activity Logger
 export async function logActivity(
-  entityType: 'TOOL' | 'MATERIAL' | 'BORROWING_TRANSACTION' | 'CONSUMPTION_TRANSACTION' | 'USER' | 'CATEGORY',
+  entityType: ActivityEntityType,
   entityId: string,
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'BORROW' | 'RETURN' | 'CONSUME' | 'EXTEND',
+  action: ActivityAction,
   actorName?: string,
-  oldValues?: any,
-  newValues?: any,
-  metadata?: any
+  oldValues?: ActivityData,
+  newValues?: ActivityData,
+  metadata?: ActivityData
 ) {
   try {
     // Safe JSON serialization helper
-    const safeSerialize = (obj: any) => {
-      if (!obj) return null;
+    const safeSerialize = (obj: ActivityData): ActivityData => {
+      if (!obj) return Prisma.DbNull as NullableJsonNullValueInput;
       try {
         // Remove circular references and non-serializable data
-        const cleaned = JSON.parse(JSON.stringify(obj, (_key, value) => {
+        const cleaned = JSON.parse(JSON.stringify(obj, (_key: string, value: unknown) => {
           // Skip functions, undefined, and symbols
           if (typeof value === 'function' || typeof value === 'undefined' || typeof value === 'symbol') {
             return undefined;
@@ -184,7 +205,7 @@ export async function logActivity(
           // Skip circular references (basic check)
           if (typeof value === 'object' && value !== null) {
             if (value.constructor && value.constructor.name === 'Date') {
-              return value.toISOString();
+              return (value as Date).toISOString();
             }
           }
           return value;
@@ -202,9 +223,9 @@ export async function logActivity(
         entityId,
         action,
         actorName: actorName || 'System',
-        oldValues: safeSerialize(oldValues),
-        newValues: safeSerialize(newValues),
-        metadata: safeSerialize(metadata),
+        oldValues: oldValues ? safeSerialize(oldValues) : undefined,
+        newValues: newValues ? safeSerialize(newValues) : undefined,
+        metadata: metadata ? safeSerialize(metadata) : undefined,
       },
     })
   } catch (error) {

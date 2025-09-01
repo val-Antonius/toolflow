@@ -1,19 +1,16 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CreateCategorySchema } from '@/lib/validations'
-import { 
-  successResponse, 
-  errorResponse, 
-  validateRequest, 
+import {
+  successResponse,
+  errorResponse,
+  validateRequest,
   handleDatabaseError,
-  logActivity,
-  buildSearchFilter,
-  buildSortOrder,
-  getPaginationParams
+  logActivity
 } from '@/lib/api-utils'
 
 // GET /api/categories - Get all categories with optional filtering
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get all categories for reports
     const categories = await prisma.category.findMany({

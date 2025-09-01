@@ -3,7 +3,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ReportTypeConfig, ReportColumn } from '@/lib/report-config';
+import { ReportTypeConfig, ReportColumn, ListItem } from '@/lib/report-config';
 import { usePDFExport } from '@/hooks/usePDFExport';
 import { ExportProgress } from './ExportProgress';
 import {
@@ -21,9 +21,23 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+type CellValue = string | number | Date | null | undefined | ListItem[];
+
+interface ReportDataRow {
+  [key: string]: CellValue;
+}
+
+interface ReportSummary {
+  [key: string]: string | number | null;
+}
+
+interface AppliedFilters {
+  [key: string]: string | number | string[] | { from: string; to: string } | null;
+}
+
 interface UnifiedReportPreviewProps {
   reportConfig: ReportTypeConfig;
-  data: any[];
+  data: ReportDataRow[];
   pagination?: {
     page: number;
     limit: number;
@@ -32,8 +46,8 @@ interface UnifiedReportPreviewProps {
     hasNext: boolean;
     hasPrev: boolean;
   };
-  summary?: any;
-  appliedFilters?: any;
+  summary?: ReportSummary;
+  appliedFilters?: AppliedFilters;
   isLoading?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -68,14 +82,14 @@ export function UnifiedReportPreview({
     await exportReportData(reportConfig, reportData, appliedFilters || {});
   };
   
-  const renderCellContent = (column: ReportColumn, value: any, row: any) => {
+  const renderCellContent = (column: ReportColumn, value: CellValue, row: ReportDataRow): React.ReactNode => {
     if (column.render) {
       return column.render(value, row);
     }
 
     switch (column.type) {
       case 'date':
-        return value ? new Date(value).toLocaleDateString('id-ID') : '-';
+        return value && typeof value !== 'object' ? new Date(value as string | number | Date).toLocaleDateString('id-ID') : '-';
       case 'currency':
         return value ? `Rp ${value.toLocaleString('id-ID')}` : '-';
       case 'number':
@@ -90,7 +104,7 @@ export function UnifiedReportPreview({
         if (!value || !Array.isArray(value)) return '-';
         return (
           <div className="space-y-1">
-            {value.slice(0, 2).map((item: any, idx: number) => (
+            {(value as ListItem[]).slice(0, 2).map((item: ListItem, idx: number) => (
               <div key={idx} className="text-xs text-gray-600">
                 {item.name || item.toolName || item.materialName}
                 {item.quantity && ` (${item.quantity}x)`}
@@ -104,7 +118,7 @@ export function UnifiedReportPreview({
           </div>
         );
       default:
-        return value || '-';
+        return value ? String(value) : '-';
     }
   };
 
@@ -355,7 +369,7 @@ export function UnifiedReportPreview({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {data.map((row, index) => (
-                <tr key={row.id || index} className="hover:bg-gray-50">
+                <tr key={String(row.id || index)} className="hover:bg-gray-50">
                   {reportConfig.columns.map((column) => (
                     <td
                       key={column.key}

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ExtendBorrowingSchema } from '@/lib/validations'
+import { BorrowingItem } from '@prisma/client'
 import {
   successResponse,
   errorResponse,
@@ -106,8 +107,8 @@ export async function POST(
       ...updatedBorrowing,
       isOverdue: false,
       daysOverdue: 0,
-      totalItems: (updatedBorrowing.borrowingItems || []).reduce((sum: number, item: any) => sum + item.quantity, 0),
-      itemsReturned: (updatedBorrowing.borrowingItems || []).filter((item: any) => item.returnDate).length,
+      totalItems: (updatedBorrowing.borrowingItems || []).reduce((sum: number, item: BorrowingItem & { tool: { id: string; name: string } }) => sum + item.quantity, 0),
+      itemsReturned: (updatedBorrowing.borrowingItems || []).filter((item: BorrowingItem & { tool: { id: string; name: string } }) => item.returnDate).length,
       canExtend: true
     }
 

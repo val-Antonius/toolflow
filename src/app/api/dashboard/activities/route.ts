@@ -2,6 +2,20 @@ import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { successResponse, handleDatabaseError } from '@/lib/api-utils'
 
+interface Activity {
+  id: string
+  time: string
+  activity: string
+  user: string
+  items: string
+  status: string
+  type: string
+}
+
+interface ActivityWithDate extends Activity {
+  createdAt: Date
+}
+
 // GET /api/dashboard/activities - Get recent activities for dashboard
 export async function GET(request: NextRequest) {
   try {
@@ -64,7 +78,7 @@ export async function GET(request: NextRequest) {
     ])
 
     // Transform and combine activities
-    const activities: any[] = []
+    const activities: ActivityWithDate[] = []
 
     // Add borrowing activities
     recentBorrowings.forEach(borrowing => {
@@ -116,24 +130,32 @@ export async function GET(request: NextRequest) {
 
       activities.push({
         id: `return-${borrowing.id}`,
-        time: borrowing.returnDate?.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
+        time: borrowing.returnDate!.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
         }),
         activity: "Pengembalian Alat",
         user: borrowing.borrowerName || '-',
         items: itemsText,
         status: 'completed',
         type: 'return',
-        createdAt: borrowing.returnDate
+        createdAt: borrowing.returnDate!
       })
     })
 
     // Sort by creation time and limit results
     const sortedActivities = activities
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit)
-      .map(({ createdAt, ...activity }) => activity) // Remove createdAt from response
+      .map(activity => ({
+        id: activity.id,
+        time: activity.time,
+        activity: activity.activity,
+        user: activity.user,
+        items: activity.items,
+        status: activity.status,
+        type: activity.type
+      }))
 
     return successResponse(sortedActivities)
   } catch (error) {

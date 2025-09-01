@@ -11,10 +11,21 @@ import { FilterConfig, ReportTypeConfig } from '@/lib/report-config';
 import { X, Filter, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface DateRangeFilter {
+  from: string;
+  to: string;
+}
+
+type FilterValue = string | number | string[] | DateRangeFilter | null;
+
+interface Filters {
+  [key: string]: FilterValue;
+}
+
 interface DynamicFiltersProps {
   reportConfig: ReportTypeConfig;
-  filters: any;
-  onFiltersChange: (filters: any) => void;
+  filters: Filters;
+  onFiltersChange: (filters: Filters) => void;
   onApplyFilters: () => void;
   isLoading?: boolean;
 }
@@ -38,7 +49,7 @@ export function DynamicFilters({
     const initialMultiSelect: MultiSelectState = {};
     reportConfig.filters.forEach(filter => {
       if (filter.type === 'multiselect') {
-        initialMultiSelect[filter.key] = filters[filter.key] || [];
+        initialMultiSelect[filter.key] = (filters[filter.key] as string[]) || [];
       }
     });
     setMultiSelectState(initialMultiSelect);
@@ -49,7 +60,7 @@ export function DynamicFilters({
     setHasChanges(true);
   }, [filters]);
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: FilterValue) => {
     const newFilters = { ...filters, [key]: value };
     onFiltersChange(newFilters);
   };
@@ -69,7 +80,7 @@ export function DynamicFilters({
   };
 
   const resetFilters = () => {
-    const defaultFilters: any = {};
+    const defaultFilters: Filters = {};
     reportConfig.filters.forEach(filter => {
       if (filter.type === 'multiselect') {
         defaultFilters[filter.key] = [];
@@ -79,7 +90,7 @@ export function DynamicFilters({
         defaultFilters[filter.key] = filter.type === 'select' ? 'all' : '';
       }
     });
-    
+
     setMultiSelectState({});
     onFiltersChange(defaultFilters);
     setHasChanges(false);
@@ -101,7 +112,7 @@ export function DynamicFilters({
           <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <Select
-              value={filters[filter.key] || 'all'}
+              value={(filters[filter.key] as string) || 'all'}
               onValueChange={(value) => handleFilterChange(filter.key, value)}
             >
               <SelectTrigger className="h-9">
@@ -170,7 +181,7 @@ export function DynamicFilters({
           <div key={filter.key} {...commonProps}>
             <Label className="text-sm font-medium">{filter.label}</Label>
             <DateRangePicker
-              value={filters[filter.key] || { from: '', to: '' }}
+              value={(filters[filter.key] as DateRangeFilter) || { from: '', to: '' }}
               onChange={(range) => handleFilterChange(filter.key, range)}
             />
           </div>
@@ -183,7 +194,7 @@ export function DynamicFilters({
             <Input
               type="text"
               placeholder={filter.placeholder || `Enter ${filter.label.toLowerCase()}...`}
-              value={filters[filter.key] || ''}
+              value={(filters[filter.key] as string) || ''}
               onChange={(e) => handleFilterChange(filter.key, e.target.value)}
               className="h-9"
             />
@@ -197,7 +208,7 @@ export function DynamicFilters({
             <Input
               type="number"
               placeholder={filter.placeholder || `Enter ${filter.label.toLowerCase()}...`}
-              value={filters[filter.key] || ''}
+              value={(filters[filter.key] as string | number) || ''}
               onChange={(e) => handleFilterChange(filter.key, e.target.value)}
               className="h-9"
             />
@@ -216,7 +227,8 @@ export function DynamicFilters({
       if (filter.type === 'multiselect') {
         if (value && Array.isArray(value) && value.length > 0) count++;
       } else if (filter.type === 'daterange') {
-        if (value && (value.from || value.to)) count++;
+        const dateRange = value as DateRangeFilter;
+        if (dateRange && (dateRange.from || dateRange.to)) count++;
       } else if (value && value !== 'all' && value !== '') {
         count++;
       }

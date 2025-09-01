@@ -1,10 +1,14 @@
 declare module 'jspdf-autotable' {
   import { jsPDF } from 'jspdf';
 
+  interface TableRow {
+    [key: string]: string | number | boolean | null | undefined;
+  }
+
   interface UserOptions {
-    head?: any[][];
-    body?: any[][];
-    foot?: any[][];
+    head?: TableRow[][];
+    body?: TableRow[][];
+    foot?: TableRow[][];
     startY?: number;
     margin?: {
       top?: number;
@@ -21,17 +25,53 @@ declare module 'jspdf-autotable' {
     useCss?: boolean;
     includeHiddenHtml?: boolean;
     html?: string | HTMLTableElement;
-    htmlParser?: (element: HTMLTableElement) => any;
-    willDrawCell?: (data: any) => void;
-    didDrawCell?: (data: any) => void;
-    willDrawPage?: (data: any) => void;
-    didDrawPage?: (data: any) => void;
-    headStyles?: any;
-    bodyStyles?: any;
-    footStyles?: any;
-    alternateRowStyles?: any;
-    columnStyles?: { [key: number]: any };
-    styles?: any;
+    htmlParser?: (element: HTMLTableElement) => TableRow[];
+    willDrawCell?: (data: DrawCallbackData) => void;
+    didDrawCell?: (data: DrawCallbackData) => void;
+    willDrawPage?: (data: DrawCallbackData) => void;
+    didDrawPage?: (data: DrawCallbackData) => void;
+    headStyles?: TableStyles;
+    bodyStyles?: TableStyles;
+    footStyles?: TableStyles;
+    alternateRowStyles?: TableStyles;
+    columnStyles?: { [key: number]: TableStyles };
+    styles?: TableStyles;
+  }
+
+  interface DrawCallbackData {
+    table: Table;
+    pageNumber: number;
+    pageCount: number;
+    settings: UserOptions;
+    doc: jsPDF;
+    cursor: { x: number; y: number };
+  }
+
+  interface TableStyles {
+    font?: string;
+    fontStyle?: string;
+    fontSize?: number;
+    textColor?: number[];
+    fillColor?: number[];
+    lineColor?: number[];
+    lineWidth?: number;
+    cellPadding?: number;
+    halign?: 'left' | 'center' | 'right';
+    valign?: 'top' | 'middle' | 'bottom';
+  }
+
+  interface Table {
+    readonly rows: TableRow[][];
+    readonly columns: Column[];
+    readonly height: number;
+    readonly width: number;
+  }
+
+  interface Column {
+    readonly dataKey: string | number;
+    readonly raw?: string | number;
+    readonly width?: number;
+    readonly text: string[];
   }
 
   function autoTable(doc: jsPDF, options: UserOptions): void;

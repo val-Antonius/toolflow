@@ -7,10 +7,10 @@ import {
   FileText,
   Users,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  LucideProps
 } from 'lucide-react';
 
-// Static Icon Registry - Solves dynamic component loading issues
 export const iconRegistry = {
   Package,
   TrendingUp,
@@ -25,7 +25,7 @@ export const iconRegistry = {
 export type IconName = keyof typeof iconRegistry;
 
 // Safe icon renderer
-export function renderIcon(iconName: IconName, props?: any) {
+export function renderIcon(iconName: IconName, props?: LucideProps): React.ReactElement {
   const IconComponent = iconRegistry[iconName];
   if (!IconComponent) {
     console.error(`Icon "${iconName}" not found in registry`);
@@ -35,6 +35,6 @@ export function renderIcon(iconName: IconName, props?: any) {
 }
 
 // Get icon component by name
-export function getIconComponent(iconName: IconName): React.ComponentType<any> {
+export function getIconComponent(iconName: IconName): React.ComponentType<LucideProps> {
   return iconRegistry[iconName] || AlertCircle;
 }

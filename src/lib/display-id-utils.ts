@@ -183,23 +183,6 @@ export async function generateConsumptionDisplayId(): Promise<string> {
  */
 export async function generateCategoryDisplayId(): Promise<string> {
   try {
-    // Get the latest category with displayId
-    const latestCategory = await prisma.category.findFirst({
-      where: {
-        // Note: Category model doesn't have displayId field yet
-        // This is prepared for future use
-        id: {
-          not: undefined
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      select: {
-        id: true
-      }
-    });
-
     // For now, just return a simple incremental ID
     // This can be enhanced when displayId is added to Category model
     const count = await prisma.category.count();

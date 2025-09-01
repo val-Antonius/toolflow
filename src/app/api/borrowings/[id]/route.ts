@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   successResponse,
@@ -6,6 +7,23 @@ import {
   handleDatabaseError,
   logActivity
 } from '@/lib/api-utils'
+
+type BorrowingItemWithIncludes = Prisma.BorrowingItemGetPayload<{
+  include: {
+    tool: {
+      select: {
+        id: true,
+        name: true,
+        category: { select: { name: true } },
+        location: true,
+        units: { select: { condition: true } }
+      }
+    },
+    borrowedUnits: {
+      include: { toolUnit: true }
+    }
+  }
+}>
 
 // GET /api/borrowings/[id] - Get borrowing transaction by ID
 export async function GET(
@@ -23,14 +41,27 @@ export async function GET(
               select: {
                 id: true,
                 name: true,
-                condition: true,
-                category: { select: { name: true } },
-                location: true
+                category: {
+                  select: { 
+                    name: true 
+                  }
+                },
+                location: true,
+                units: {
+                  select: {
+                    condition: true
+                  }
+                }
+              }
+            },
+            borrowedUnits: {
+              include: {
+                toolUnit: true
               }
             }
           }
         }
-      },
+      }
     })
 
     if (!borrowing) {
@@ -46,8 +77,8 @@ export async function GET(
       ...borrowing,
       isOverdue,
       daysOverdue,
-      totalItems: (borrowing.borrowingItems || []).reduce((sum: number, item: any) => sum + item.quantity, 0),
-      itemsReturned: (borrowing.borrowingItems || []).filter((item: any) => item.returnDate).length,
+      totalItems: (borrowing.borrowingItems || []).reduce((sum: number, item: BorrowingItemWithIncludes) => sum + item.quantity, 0),
+      itemsReturned: (borrowing.borrowingItems || []).filter((item: BorrowingItemWithIncludes) => item.returnDate).length,
       canExtend: borrowing.status === 'ACTIVE' && !isOverdue
     }
 
@@ -97,7 +128,15 @@ export async function PUT(
         borrowingItems: {
           include: {
             tool: {
-              select: { id: true, name: true, condition: true }
+              select: { 
+                id: true, 
+                name: true, 
+                units: {
+                  select: {
+                    condition: true
+                  }
+                }
+              }
             }
           }
         }

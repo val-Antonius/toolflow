@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { CreateMaterialSchema } from '@/lib/validations'
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
 
     // Build filters
-    const where: any = {
+    const where: Prisma.MaterialWhereInput = {
       ...buildSearchFilter(search, ['name', 'supplier', 'location', 'unit']),
     }
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Error fetching materials:', error)
-    return handleDatabaseError(error as any)
+    return handleDatabaseError(error)
   }
 }
 
