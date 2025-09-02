@@ -63,7 +63,6 @@ export async function GET(request: NextRequest) {
     if (projectName) {
       where.projectName = {
         contains: projectName,
-        mode: 'insensitive',
       };
     }
 

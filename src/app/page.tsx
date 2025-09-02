@@ -74,7 +74,7 @@ const fetchKPIs = async (): Promise<KPIData[]> => {
     }
 
     if (result.success && Array.isArray(result.data)) {
-      return result.data.map((kpi, index) => ({
+      return result.data.map((kpi: { title: string; value: string; icon: string; description?: string }, index: number) => ({
         id: `kpi-${index}`,
         title: kpi.title,
         value: kpi.value,

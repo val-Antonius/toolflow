@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Log activity
-    await logActivity('TOOL', tool.id, 'CREATE', undefined, undefined, completeToolData)
+    await logActivity('TOOL', tool.id, 'CREATE', undefined, undefined, completeToolData ?? undefined)
 
     return successResponse({
       ...completeToolData,

@@ -6,9 +6,9 @@ declare module 'jspdf-autotable' {
   }
 
   interface UserOptions {
-    head?: TableRow[][];
-    body?: TableRow[][];
-    foot?: TableRow[][];
+    head?: (string | TableRow)[][];
+    body?: (string | TableRow)[][];
+    foot?: (string | TableRow)[][];
     startY?: number;
     margin?: {
       top?: number;
@@ -55,7 +55,9 @@ declare module 'jspdf-autotable' {
     fillColor?: number[];
     lineColor?: number[];
     lineWidth?: number;
-    cellPadding?: number;
+    cellPadding?: number | { top?: number; right?: number; bottom?: number; left?: number };
+    cellWidth?: number | 'wrap' | 'auto';
+    overflow?: string;
     halign?: 'left' | 'center' | 'right';
     valign?: 'top' | 'middle' | 'bottom';
   }

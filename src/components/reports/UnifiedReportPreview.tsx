@@ -89,15 +89,30 @@ export function UnifiedReportPreview({
 
     switch (column.type) {
       case 'date':
-        return value && typeof value !== 'object' ? new Date(value as string | number | Date).toLocaleDateString('id-ID') : '-';
+        if (value instanceof Date) {
+          return value.toLocaleDateString('id-ID');
+        } else if (typeof value === 'string' || typeof value === 'number') {
+          return new Date(value).toLocaleDateString('id-ID');
+        } else {
+          return '-';
+        }
       case 'currency':
-        return value ? `Rp ${value.toLocaleString('id-ID')}` : '-';
+        if (typeof value === 'number') {
+          return `Rp ${value.toLocaleString('id-ID')}`;
+        } else {
+          return value ? String(value) : '-';
+        }
       case 'number':
-        return value?.toLocaleString('id-ID') || '-';
+        if (typeof value === 'number') {
+          return value.toLocaleString('id-ID');
+        } else {
+          return value ? String(value) : '-';
+        }
       case 'status':
+        const statusValue = value != null ? String(value) : '-';
         return (
           <Badge className="text-xs">
-            {value}
+            {statusValue}
           </Badge>
         );
       case 'list':

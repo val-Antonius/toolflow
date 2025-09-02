@@ -3,7 +3,6 @@ import { ZodError, ZodSchema } from 'zod'
 import { prisma } from './prisma'
 import { Prisma } from '@prisma/client'
 import type { InputJsonValue } from '@prisma/client/runtime/library'
-import type { NullableJsonNullValueInput } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
 
 // Query Parameter Types
@@ -33,7 +32,7 @@ export interface DatabaseError extends Error {
 // Activity Log Data Types
 export type ActivityEntityType = 'TOOL' | 'MATERIAL' | 'BORROWING_TRANSACTION' | 'CONSUMPTION_TRANSACTION' | 'USER' | 'CATEGORY'
 export type ActivityAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'BORROW' | 'RETURN' | 'CONSUME' | 'EXTEND'
-export type ActivityData = InputJsonValue | NullableJsonNullValueInput | undefined
+export type ActivityData = InputJsonValue | typeof Prisma.DbNull | undefined
 
 // Error Response Helper
 export function errorResponse(message: string, status: number = 400): NextResponse<ApiResponse> {
@@ -194,7 +193,7 @@ export async function logActivity(
   try {
     // Safe JSON serialization helper
     const safeSerialize = (obj: ActivityData): ActivityData => {
-      if (!obj) return Prisma.DbNull as NullableJsonNullValueInput;
+      if (!obj) return Prisma.DbNull;
       try {
         // Remove circular references and non-serializable data
         const cleaned = JSON.parse(JSON.stringify(obj, (_key: string, value: unknown) => {
@@ -242,7 +241,6 @@ export function buildSearchFilter(search?: string, fields: string[] = ['name']) 
     OR: fields.map(field => ({
       [field]: {
         contains: search,
-        mode: 'insensitive' as const,
       },
     })),
   }

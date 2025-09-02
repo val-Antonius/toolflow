@@ -178,118 +178,120 @@ export default function Activities() {
     setSidebarOpen(true);
   };
 
-  const handleFormSubmit = async (formData: Record<string, unknown>) => {
-    try {
-      console.log('Form submission started:', { sidebarType, formData });
+  const handleFormSubmit = (formData: unknown) => {
+    (async () => {
+      try {
+        console.log('Form submission started:', { sidebarType, formData });
 
-      let response, result;
-      if (sidebarType === 'return') {
-        const borrowingId = selectedBorrowing?.id;
-        console.log('Processing return for borrowing:', borrowingId);
+        let response, result;
+        if (sidebarType === 'return') {
+          const borrowingId = selectedBorrowing?.id;
+          console.log('Processing return for borrowing:', borrowingId);
 
-        if (!borrowingId) {
-          throw new Error('No borrowing selected for return');
-        }
-
-        // Proses pengembalian
-        response = await fetch(`/api/borrowings/${borrowingId}/return`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-
-        console.log('Return response status:', response.status);
-        console.log('Return response headers:', response.headers);
-
-        // Check if response is ok
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Return API error response:', errorText);
-          throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process return'}`);
-        }
-
-        // Try to parse JSON
-        const responseText = await response.text();
-        console.log('Return response text:', responseText);
-
-        if (!responseText.trim()) {
-          // Empty response - assume success
-          result = { success: true, message: 'Return processed successfully' };
-        } else {
-          try {
-            result = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            throw new Error(`Invalid JSON response: ${responseText}`);
+          if (!borrowingId) {
+            throw new Error('No borrowing selected for return');
           }
-        }
 
-        if (!result.success) throw new Error(result.message || 'Failed to process return');
+          // Proses pengembalian
+          response = await fetch(`/api/borrowings/${borrowingId}/return`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
 
-      } else if (sidebarType === 'extend') {
-        const borrowingId = selectedBorrowing?.id;
-        console.log('Processing extension for borrowing:', borrowingId);
+          console.log('Return response status:', response.status);
+          console.log('Return response headers:', response.headers);
 
-        if (!borrowingId) {
-          throw new Error('No borrowing selected for extension');
-        }
-
-        // Proses perpanjangan
-        response = await fetch(`/api/borrowings/${borrowingId}/extend`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-
-        console.log('Extend response status:', response.status);
-
-        // Check if response is ok
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Extend API error response:', errorText);
-          throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process extension'}`);
-        }
-
-        // Try to parse JSON
-        const responseText = await response.text();
-        console.log('Extend response text:', responseText);
-
-        if (!responseText.trim()) {
-          // Empty response - assume success
-          result = { success: true, message: 'Extension processed successfully' };
-        } else {
-          try {
-            result = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            throw new Error(`Invalid JSON response: ${responseText}`);
+          // Check if response is ok
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Return API error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process return'}`);
           }
+
+          // Try to parse JSON
+          const responseText = await response.text();
+          console.log('Return response text:', responseText);
+
+          if (!responseText.trim()) {
+            // Empty response - assume success
+            result = { success: true, message: 'Return processed successfully' };
+          } else {
+            try {
+              result = JSON.parse(responseText);
+            } catch (parseError) {
+              console.error('JSON parse error:', parseError);
+              throw new Error(`Invalid JSON response: ${responseText}`);
+            }
+          }
+
+          if (!result.success) throw new Error(result.message || 'Failed to process return');
+
+        } else if (sidebarType === 'extend') {
+          const borrowingId = selectedBorrowing?.id;
+          console.log('Processing extension for borrowing:', borrowingId);
+
+          if (!borrowingId) {
+            throw new Error('No borrowing selected for extension');
+          }
+
+          // Proses perpanjangan
+          response = await fetch(`/api/borrowings/${borrowingId}/extend`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+          });
+
+          console.log('Extend response status:', response.status);
+
+          // Check if response is ok
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Extend API error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to process extension'}`);
+          }
+
+          // Try to parse JSON
+          const responseText = await response.text();
+          console.log('Extend response text:', responseText);
+
+          if (!responseText.trim()) {
+            // Empty response - assume success
+            result = { success: true, message: 'Extension processed successfully' };
+          } else {
+            try {
+              result = JSON.parse(responseText);
+            } catch (parseError) {
+              console.error('JSON parse error:', parseError);
+              throw new Error(`Invalid JSON response: ${responseText}`);
+            }
+          }
+
+          if (!result.success) throw new Error(result.message || 'Failed to process extension');
         }
 
-        if (!result.success) throw new Error(result.message || 'Failed to process extension');
+        console.log('Operation successful:', result);
+        setSidebarOpen(false);
+
+        // Refresh data
+        setLoading(true);
+        const [borrowingsData, consumptionsData] = await Promise.all([
+          fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE' : undefined),
+          fetchConsumptions()
+        ]);
+        setBorrowings(borrowingsData);
+        setConsumptions(consumptionsData);
+        setLoading(false);
+
+        // Show success message
+        alert(result.message || 'Operation completed successfully');
+
+      } catch (error: unknown) {
+        console.error('Activities CRUD error:', error);
+        const message = error instanceof Error ? error.message : 'Operation failed';
+        alert(message);
       }
-
-      console.log('Operation successful:', result);
-      setSidebarOpen(false);
-
-      // Refresh data
-      setLoading(true);
-      const [borrowingsData, consumptionsData] = await Promise.all([
-        fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE' : undefined),
-        fetchConsumptions()
-      ]);
-      setBorrowings(borrowingsData);
-      setConsumptions(consumptionsData);
-      setLoading(false);
-
-      // Show success message
-      alert(result.message || 'Operation completed successfully');
-
-    } catch (error: unknown) {
-      console.error('Activities CRUD error:', error);
-      const message = error instanceof Error ? error.message : 'Operation failed';
-      alert(message);
-    }
+    })();
   };
 
   const toggleHistoryDetails = (id: string) => {

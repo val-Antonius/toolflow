@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { UpdateToolSchema } from '@/lib/validations'
+import { Tool } from '@prisma/client'
 import {
   successResponse,
   errorResponse,
@@ -68,7 +69,7 @@ export async function PUT(
     }
 
     // Get existing tool
-    const existingTool = await prisma.tool.findUnique({
+    const existingTool: Tool | null = await prisma.tool.findUnique({
       where: { id },
     })
 

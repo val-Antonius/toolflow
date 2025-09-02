@@ -65,7 +65,7 @@ export interface ListItem {
 }
 
 export interface FilterValues {
-  [key: string]: string | number | boolean | null;
+  [key: string]: string | number | boolean | string[] | { from: string; to: string } | null;
 }
 
 // Status Badge Renderer
@@ -208,7 +208,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => {
           const displayId = row.displayId;
-          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
+          const idStr = typeof value === 'string' ? value : '';
+          return <span className="font-mono text-xs">{displayId || idStr.slice(0, 8) + '...'}</span>
         }
       },
       { key: 'borrower', label: 'Borrower', type: 'text', sortable: true, width: '150px' },
@@ -217,7 +218,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         label: 'Items', 
         type: 'list', 
         width: '200px',
-        render: (value) => <ItemsList items={value} />
+        render: (value) => <ItemsList items={Array.isArray(value) ? value : []} />
       },
       { 
         key: 'borrowDate', 
@@ -225,7 +226,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'date', 
         sortable: true, 
         width: '120px',
-        render: (value) => <DateFormatter date={value} />
+        render: (value) => <DateFormatter date={typeof value === 'string' ? value : ''} />
       },
       { 
         key: 'dueDate', 
@@ -233,7 +234,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'date', 
         sortable: true, 
         width: '120px',
-        render: (value) => <DateFormatter date={value} />
+        render: (value) => <DateFormatter date={typeof value === 'string' ? value : ''} />
       },
       { 
         key: 'status', 
@@ -241,7 +242,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'status', 
         sortable: true, 
         width: '100px',
-        render: (value) => <StatusBadge status={value} type="borrowing" />
+        render: (value) => <StatusBadge status={typeof value === 'string' ? value : ''} type="borrowing" />
       },
       { key: 'purpose', label: 'Purpose', type: 'text', width: '200px' }
     ]
@@ -298,7 +299,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => {
           const displayId = row.displayId;
-          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
+          const idStr = typeof value === 'string' ? value : '';
+          return <span className="font-mono text-xs">{displayId || idStr.slice(0, 8) + '...'}</span>
         }
       },
       { key: 'consumer', label: 'Consumer', type: 'text', sortable: true, width: '150px' },
@@ -308,7 +310,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'date', 
         sortable: true, 
         width: '120px',
-        render: (value) => <DateFormatter date={value} />
+        render: (value) => <DateFormatter date={typeof value === 'string' ? value : ''} />
       },
       { key: 'projectName', label: 'Project', type: 'text', sortable: true, width: '150px' },
       { 
@@ -316,7 +318,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         label: 'Materials', 
         type: 'list', 
         width: '200px',
-        render: (value) => <ItemsList items={value} />
+        render: (value) => <ItemsList items={Array.isArray(value) ? value : []} />
       },
       { 
         key: 'totalValue', 
@@ -324,7 +326,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'currency', 
         sortable: true, 
         width: '120px',
-        render: (value) => <CurrencyFormatter value={value} />
+        render: (value) => <CurrencyFormatter value={typeof value === 'number' ? value : 0} />
       },
       { key: 'purpose', label: 'Purpose', type: 'text', width: '200px' }
     ]
@@ -392,7 +394,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => {
           const displayId = row.displayId;
-          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
+          const idStr = typeof value === 'string' ? value : '';
+          return <span className="font-mono text-xs">{displayId || idStr.slice(0, 8) + '...'}</span>
         }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
@@ -403,7 +406,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'status',
         sortable: true,
         width: '100px',
-        render: (value) => <StatusBadge status={value} type="condition" />
+        render: (value) => <StatusBadge status={typeof value === 'string' ? value : ''} type="condition" />
       },
       {
         key: 'availability',
@@ -424,7 +427,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'status',
         sortable: true,
         width: '100px',
-        render: (value) => <StatusBadge status={value} type="tools" />
+        render: (value) => <StatusBadge status={typeof value === 'string' ? value : ''} type="tools" />
       }
     ]
   },
@@ -479,7 +482,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => {
           const displayId = row.displayId;
-          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
+          const idStr = typeof value === 'string' ? value : '';
+          return <span className="font-mono text-xs">{displayId || idStr.slice(0, 8) + '...'}</span>
         }
       },
       { key: 'name', label: 'Name', type: 'text', sortable: true, width: '200px' },
@@ -492,7 +496,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '120px',
         render: (value, row) => (
           <span className="font-mono text-sm">
-            {value} {row.unit}
+            {typeof value === 'number' ? value : 0} {row.unit}
           </span>
         )
       },
@@ -505,7 +509,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => (
           <span className="font-mono text-sm text-gray-600">
-            {value} {row.unit}
+            {typeof value === 'number' ? value : 0} {row.unit}
           </span>
         )
       },
@@ -516,7 +520,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'status',
         sortable: true,
         width: '100px',
-        render: (value) => <StatusBadge status={value} type="materials" />
+        render: (value) => <StatusBadge status={typeof value === 'string' ? value : ''} type="materials" />
       }
     ]
   },
@@ -570,7 +574,8 @@ export const reportConfigurations: ReportTypeConfig[] = [
         width: '100px',
         render: (value, row) => {
           const displayId = row.displayId;
-          return <span className="font-mono text-xs">{displayId || (value as string).slice(0, 8) + '...'}</span>
+          const idStr = typeof value === 'string' ? value : '';
+          return <span className="font-mono text-xs">{displayId || idStr.slice(0, 8) + '...'}</span>
         }
       },
       {
@@ -579,14 +584,17 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'status',
         sortable: true,
         width: '100px',
-        render: (value) => (
-          <Badge className={cn(
-            "text-xs",
-            value === 'borrowing' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-          )}>
-            {value === 'borrowing' ? 'Borrow' : 'Consume'}
-          </Badge>
-        )
+        render: (value) => {
+          const typeStr = typeof value === 'string' ? value : '';
+          return (
+            <Badge className={cn(
+              "text-xs",
+              typeStr === 'borrowing' ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+            )}>
+              {typeStr === 'borrowing' ? 'Borrow' : 'Consume'}
+            </Badge>
+          );
+        }
       },
       {
         key: 'date',
@@ -594,7 +602,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'date',
         sortable: true,
         width: '120px',
-        render: (value) => <DateFormatter date={value} />
+        render: (value) => <DateFormatter date={typeof value === 'string' ? value : ''} />
       },
       { key: 'person', label: 'Person', type: 'text', sortable: true, width: '150px' },
       {
@@ -602,7 +610,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         label: 'Items',
         type: 'list',
         width: '200px',
-        render: (value) => <ItemsList items={value} />
+        render: (value) => <ItemsList items={Array.isArray(value) ? value : []} />
       },
       { key: 'purpose', label: 'Purpose', type: 'text', width: '200px' },
       {
@@ -611,7 +619,7 @@ export const reportConfigurations: ReportTypeConfig[] = [
         type: 'currency',
         sortable: true,
         width: '120px',
-        render: (value) => value ? <CurrencyFormatter value={value} /> : <span className="text-gray-500">-</span>
+        render: (value) => typeof value === 'number' ? <CurrencyFormatter value={value} /> : <span className="text-gray-500">-</span>
       }
     ]
   }

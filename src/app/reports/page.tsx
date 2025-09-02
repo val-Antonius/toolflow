@@ -18,11 +18,12 @@ import { DynamicFilters } from '@/components/reports/DynamicFilters';
 import { UnifiedReportPreview } from '@/components/reports/UnifiedReportPreview';
 import { getIconComponent } from '@/lib/icon-registry';
 import {
-  getAllReportTypes,
   getReportConfig,
   populateFilterOptions,
   validateFilters,
-  ReportTypeConfig
+  ReportTypeConfig,
+  FilterValues,
+  ListItem
 } from '@/lib/report-config';
 
 // New unified interfaces for the revolutionary system
@@ -68,6 +69,32 @@ interface UnifiedReportData {
     hasPrev: boolean;
   };
   generatedAt: string;
+}
+
+// Component-specific types for proper typing
+interface DateRangeFilter {
+  from: string;
+  to: string;
+}
+
+type FilterValue = string | number | string[] | DateRangeFilter | null;
+
+interface Filters {
+  [key: string]: FilterValue;
+}
+
+type CellValue = string | number | Date | null | undefined | ListItem[];
+
+interface ReportDataRow {
+  [key: string]: CellValue;
+}
+
+interface ComponentReportSummary {
+  [key: string]: string | number | null;
+}
+
+interface AppliedFilters {
+  [key: string]: string | number | string[] | { from: string; to: string } | null;
 }
 
 // Application state management
@@ -221,8 +248,7 @@ export default function Reports() {
   const [sortBy, setSortBy] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Get all available report configurations
-  const reportConfigurations = getAllReportTypes();
+// Handler functions for the new revolutionary system
   // Handler functions for the new revolutionary system
   const handleReportTypeSelect = async (reportType: string) => {
     try {
@@ -290,7 +316,7 @@ export default function Reports() {
     if (!reportState.selectedReportType || !reportState.reportConfig) return;
 
     // Validate filters
-    const validation = validateFilters(reportState.selectedReportType, reportState.filters);
+    const validation = validateFilters(reportState.selectedReportType, reportState.filters as FilterValues);
     if (!validation.isValid) {
       setReportState(prev => ({
         ...prev,
@@ -312,7 +338,7 @@ export default function Reports() {
         setReportState(prev => ({
           ...prev,
           step: 'preview-results',
-          reportData: result.data,
+          reportData: result.data || null,
           isLoading: false
         }));
       } else {
@@ -424,7 +450,6 @@ export default function Reports() {
           <ReportTypeSelector
             selectedType={reportState.selectedReportType || undefined}
             onTypeSelect={handleReportTypeSelect}
-            reportConfigs={reportConfigurations}
           />
         );
 
@@ -480,7 +505,7 @@ export default function Reports() {
               {/* Dynamic Filters */}
               <DynamicFilters
                 reportConfig={reportState.reportConfig}
-                filters={reportState.filters}
+                filters={reportState.filters as Filters}
                 onFiltersChange={handleFiltersChange}
                 onApplyFilters={handleApplyFilters}
                 isLoading={reportState.isLoading}
@@ -527,10 +552,10 @@ export default function Reports() {
             {/* Unified Report Preview */}
             <UnifiedReportPreview
               reportConfig={reportState.reportConfig}
-              data={reportState.reportData.data || []}
+              data={(reportState.reportData.data || []) as ReportDataRow[]}
               pagination={reportState.reportData.pagination}
-              summary={reportState.reportData.summary}
-              appliedFilters={reportState.filters}
+              summary={reportState.reportData.summary as ComponentReportSummary}
+              appliedFilters={reportState.filters as AppliedFilters}
               isLoading={reportState.isLoading}
               sortBy={sortBy}
               sortOrder={sortOrder}

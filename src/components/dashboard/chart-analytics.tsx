@@ -173,13 +173,13 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
                   <>
                     <div
                       className="bg-blue-500 rounded-t min-w-[8px]"
-                      style={{ height: `${(item.created / maxValue) * 200}px` }}
-                      title={`Tools Dibuat: ${item.created}`}
+                      style={{ height: `${((item.created || 0) / maxValue) * 200}px` }}
+                      title={`Tools Dibuat: ${item.created || 0}`}
                     ></div>
                     <div
                       className="bg-green-500 rounded-t min-w-[8px]"
-                      style={{ height: `${(item.total / maxValue) * 200}px` }}
-                      title={`Total Tools: ${item.total}`}
+                      style={{ height: `${((item.total || 0) / maxValue) * 200}px` }}
+                      title={`Total Tools: ${item.total || 0}`}
                     ></div>
                   </>
                 )}
@@ -187,18 +187,18 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
                   <>
                     <div
                       className="bg-blue-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.created / maxValue) * 200}px` }}
-                      title={`Material Baru: ${item.created}`}
+                      style={{ height: `${((item.created || 0) / maxValue) * 200}px` }}
+                      title={`Material Baru: ${item.created || 0}`}
                     ></div>
                     <div
                       className="bg-red-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.consumed / maxValue) * 200}px` }}
-                      title={`Konsumsi: ${item.consumed}`}
+                      style={{ height: `${((item.consumed || 0) / maxValue) * 200}px` }}
+                      title={`Konsumsi: ${item.consumed || 0}`}
                     ></div>
                     <div
                       className="bg-green-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.total / maxValue) * 200}px` }}
-                      title={`Total Material: ${item.total}`}
+                      style={{ height: `${((item.total || 0) / maxValue) * 200}px` }}
+                      title={`Total Material: ${item.total || 0}`}
                     ></div>
                   </>
                 )}
@@ -206,18 +206,18 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
                   <>
                     <div
                       className="bg-blue-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.borrowed / maxValue) * 200}px` }}
-                      title={`Dipinjam: ${item.borrowed}`}
+                      style={{ height: `${((item.borrowed || 0) / maxValue) * 200}px` }}
+                      title={`Dipinjam: ${item.borrowed || 0}`}
                     ></div>
                     <div
                       className="bg-green-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.returned / maxValue) * 200}px` }}
-                      title={`Dikembalikan: ${item.returned}`}
+                      style={{ height: `${((item.returned || 0) / maxValue) * 200}px` }}
+                      title={`Dikembalikan: ${item.returned || 0}`}
                     ></div>
                     <div
                       className="bg-red-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.overdue / maxValue) * 200}px` }}
-                      title={`Terlambat: ${item.overdue}`}
+                      style={{ height: `${((item.overdue || 0) / maxValue) * 200}px` }}
+                      title={`Terlambat: ${item.overdue || 0}`}
                     ></div>
                   </>
                 )}
@@ -225,18 +225,18 @@ export function ChartAnalytics({ className }: ChartAnalyticsProps) {
                   <>
                     <div
                       className="bg-green-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.good / maxValue) * 200}px` }}
-                      title={`Good: ${item.good}`}
+                      style={{ height: `${((item.good || 0) / maxValue) * 200}px` }}
+                      title={`Good: ${item.good || 0}`}
                     ></div>
                     <div
                       className="bg-yellow-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.fair / maxValue) * 200}px` }}
-                      title={`Fair: ${item.fair}`}
+                      style={{ height: `${((item.fair || 0) / maxValue) * 200}px` }}
+                      title={`Fair: ${item.fair || 0}`}
                     ></div>
                     <div
                       className="bg-red-500 rounded-t min-w-[6px]"
-                      style={{ height: `${(item.poor / maxValue) * 200}px` }}
-                      title={`Poor: ${item.poor}`}
+                      style={{ height: `${((item.poor || 0) / maxValue) * 200}px` }}
+                      title={`Poor: ${item.poor || 0}`}
                     ></div>
                   </>
                 )}

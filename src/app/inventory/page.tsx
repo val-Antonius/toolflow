@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InventorySidebar } from '@/components/ui/inventory-sidebar';
+import type { InventoryItem } from '@/components/ui/inventory-sidebar';
 
 import { cn } from '@/lib/utils';
 import {
@@ -411,7 +412,7 @@ export default function Inventory() {
           // Transform payload sesuai schema
           const borrowPayload = {
             borrowerName: formData.borrowerName,
-            dueDate: new Date(formData.dueDate).toISOString(), // Pastikan format datetime valid
+            dueDate: new Date(formData.dueDate as string).toISOString(), // Pastikan format datetime valid
             purpose: formData.purpose,
             notes: formData.notes,
             items: formData.items
@@ -485,7 +486,7 @@ export default function Inventory() {
               categoryId: formData.categoryId,
               totalQuantity: Number(formData.totalQuantity),
               availableQuantity: Number(formData.availableQuantity),
-              condition: formData.condition?.toUpperCase(),
+              condition: typeof formData.condition === 'string' ? formData.condition.toUpperCase() : 'GOOD',
               location: formData.location,
               supplier: formData.supplier
             }
@@ -511,7 +512,7 @@ export default function Inventory() {
       // DELETE
       else if (sidebarType === 'delete') {
         // Hapus satu per satu agar aman
-        for (const item of formData.items || []) {
+        for (const item of (Array.isArray(formData.items) ? formData.items : [])) {
           const endpoint = item.type === 'tool' ? `/api/tools/${item.id}` : `/api/materials/${item.id}`;
           response = await fetch(endpoint, { method: 'DELETE' });
           result = await response.json();
@@ -929,8 +930,8 @@ export default function Inventory() {
                                           { condition: 'FAIR', label: 'Fair', color: 'bg-yellow-500', textColor: 'text-yellow-700' },
                                           { condition: 'POOR', label: 'Poor', color: 'bg-red-500', textColor: 'text-red-700' }
                                         ].map(({ condition, label, color, textColor }) => {
-                                          const count = tool.units.filter(u => u.condition === condition).length;
-                                          const percentage = (count / tool.units.length) * 100;
+                                          const count = tool.units?.filter(u => u.condition === condition).length || 0;
+                                          const percentage = tool.units ? (count / tool.units.length) * 100 : 0;
                                           return (
                                             <div key={condition} className="flex items-center justify-between">
                                               <div className="flex items-center space-x-2">
@@ -1221,8 +1222,23 @@ export default function Inventory() {
         onClose={() => setSidebarOpen(false)}
         type={sidebarType}
         selectedItems={selectedItemsData}
-        editItem={editItem}
-        onSubmit={handleFormSubmit}
+        editItem={editItem ? {
+          id: editItem.id,
+          name: editItem.name,
+          type: editItem.type,
+          category: editItem.category.id,
+          quantity: editItem.type === 'tool' ? editItem.totalQuantity : editItem.currentQuantity,
+          unit: editItem.type === 'material' ? editItem.unit : undefined,
+          condition: undefined,
+          units: editItem.type === 'tool' ? editItem.units : undefined,
+          available: editItem.type === 'tool' ? editItem.availableQuantity : editItem.currentQuantity,
+          total: editItem.type === 'tool' ? editItem.totalQuantity : undefined,
+          totalQuantity: editItem.type === 'tool' ? editItem.totalQuantity : undefined,
+          threshold: editItem.type === 'material' ? editItem.thresholdQuantity : undefined,
+          supplier: editItem.supplier,
+          location: editItem.location,
+        } as InventoryItem : undefined}
+        onSubmit={handleFormSubmit as (formData: unknown) => void}
         toolCategories={toolCategories}
         materialCategories={materialCategories}
       />

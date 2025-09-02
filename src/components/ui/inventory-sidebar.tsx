@@ -20,7 +20,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-interface ToolUnit {
+export interface ToolUnit {
   id: string;
   displayId?: string;
   unitNumber: number;
@@ -29,35 +29,37 @@ interface ToolUnit {
   notes?: string;
 }
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  type: 'tool' | 'material';
-  category: string;
-  quantity?: number;
-  unit?: string;
-  condition?: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  units?: ToolUnit[];
-  available?: number;
-  total?: number;
-  threshold?: number;
-  supplier?: string;
-  location?: string;
-}
+export interface InventoryItem {
+   id: string;
+   name: string;
+   type: 'tool' | 'material';
+   category: string;
+   quantity?: number;
+   unit?: string;
+   condition?: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+   units?: ToolUnit[];
+   available?: number;
+   total?: number;
+   totalQuantity?: number;
+   threshold?: number;
+   supplier?: string;
+   location?: string;
+ }
 
-interface SelectedItem extends InventoryItem {
-  selectedQuantity?: number;
-  categoryId?: string;
-  totalQuantity?: number;
-  availableQuantity?: number;
-  currentQuantity?: number;
-  thresholdQuantity?: number;
-  stockStatus?: string;
-  isLowStock?: boolean;
-  borrowedQuantity?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
+export interface SelectedItem extends InventoryItem {
+   selectedQuantity?: number;
+   categoryId?: string;
+   totalQuantity?: number;
+   availableQuantity?: number;
+   currentQuantity?: number;
+   thresholdQuantity?: number;
+   stockStatus?: string;
+   isLowStock?: boolean;
+   borrowedQuantity?: number;
+   unitPrice?: number;
+   createdAt?: string;
+   updatedAt?: string;
+ }
 
 
 interface NewItem {
@@ -998,18 +1000,18 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const renderEditForm = () => (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="name">Nama Item</Label>
-        <Input
-          id="name"
-          value={formData.name || ''}
-          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-          required
-        />
-      </div>
+         <Label htmlFor="name">Nama Item</Label>
+         <Input
+           id="name"
+           value={(formData.name as string) || ''}
+           onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+           required
+         />
+       </div>
 
       <div>
         <Label htmlFor="category">Kategori</Label>
-        <Select value={formData.category} onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}>
+        <Select value={formData.category as string} onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}>
           <SelectTrigger>
             <SelectValue placeholder="Pilih kategori" />
           </SelectTrigger>
@@ -1027,7 +1029,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
           <Input
             id="quantity"
             type="number"
-            value={formData.quantity || 1}
+            value={(formData.quantity as number) || 1}
             onChange={(e) => setFormData((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
             min="1"
             required
@@ -1037,7 +1039,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         {editItem?.type === 'material' && (
           <div>
             <Label htmlFor="unit">Unit</Label>
-            <Select value={formData.unit} onValueChange={(value) => setFormData((prev) => ({ ...prev, unit: value }))}>
+            <Select value={formData.unit as string} onValueChange={(value) => setFormData((prev) => ({ ...prev, unit: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -1057,7 +1059,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <Label htmlFor="location">Lokasi</Label>
         <Input
           id="location"
-          value={formData.location || ''}
+          value={(formData.location as string) || ''}
           onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, location: e.target.value }))}
           placeholder="Gudang, Rak, dll"
         />
@@ -1067,7 +1069,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         <Label htmlFor="supplier">Supplier</Label>
         <Input
           id="supplier"
-          value={formData.supplier || ''}
+          value={(formData.supplier as string) || ''}
           onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, supplier: e.target.value }))}
           placeholder="Nama supplier (opsional)"
         />
@@ -1079,7 +1081,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
           <Input
             id="threshold"
             type="number"
-            value={formData.threshold || 10}
+            value={(formData.threshold as number) || 10}
             onChange={(e) => setFormData((prev) => ({ ...prev, threshold: parseInt(e.target.value) || 10 }))}
             min="1"
           />
@@ -1866,7 +1868,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
             </div>
           </div>
 
-          <Tabs value={processType} onValueChange={(value: 'borrow' | 'consume') => setProcessType(value)} className="space-y-4">
+          <Tabs value={processType} onValueChange={(value) => setProcessType(value as 'borrow' | 'consume')} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2 h-12">
               <TabsTrigger value="borrow" disabled={!hasTools} className="flex items-center space-x-2 h-10">
                 <Wrench className="w-4 h-4" />

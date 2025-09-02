@@ -29,6 +29,7 @@ export const CreateToolShape = {
   name: z.string().min(1, 'Name is required').max(200, 'Name too long'),
   categoryId: z.string().min(1, 'Category is required'),
   totalQuantity: z.number().int().min(1, 'Total quantity must be at least 1'),
+  availableQuantity: z.number().int().min(0, 'Available quantity cannot be negative').optional(),
   location: z.string().optional(),
   supplier: z.string().optional(),
   purchaseDate: z.string().datetime().optional(),
