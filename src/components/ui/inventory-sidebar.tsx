@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 import { Badge } from './badge';
 import { DateTimePicker } from './datetime-picker';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   X,
@@ -151,6 +152,9 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const [selectedUnits, setSelectedUnits] = useState<Record<string, string[]>>({});
   const [borrowQuantities, setBorrowQuantities] = useState<Record<string, number>>({});
   const [selectionMode, setSelectionMode] = useState<Record<string, 'manual' | 'quantity'>>({});
+  
+  // Initialize hooks
+  const { toast } = useToast();
 
   // Check if selected items contain both tools and materials
   const hasTools = selectedItems.some(item => item.type === 'tool');
@@ -458,7 +462,12 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       onClose();
     } catch (error) {
       console.error('Form submission error:', error);
-      alert(error instanceof Error ? error.message : 'An error occurred while processing the form');
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while processing the form';
+      toast({
+        type: 'error',
+        title: 'Form Submission Failed',
+        description: errorMessage
+      });
     }
   };
 

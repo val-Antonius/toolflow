@@ -210,27 +210,6 @@ const generateUnifiedReport = async (
   }
 };
 
-// Export functionality
-const handleExport = async (format: 'csv' | 'excel', reportType: string, filters: ReportFilters) => {
-  try {
-    const result = await generateUnifiedReport(reportType, filters, format);
-    if (result.success && result.blob) {
-      const url = window.URL.createObjectURL(result.blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `${reportType}-report-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } else {
-      console.error('Failed to export report:', result.error);
-    }
-  } catch (error) {
-    console.error('Error exporting report:', error);
-  }
-};
 
 // Revolutionary Reports Component
 export default function Reports() {
@@ -561,7 +540,6 @@ export default function Reports() {
               sortOrder={sortOrder}
               onSort={handleSort}
               onPageChange={handlePageChange}
-              onExport={handleExportReport}
             />
           </div>
         );

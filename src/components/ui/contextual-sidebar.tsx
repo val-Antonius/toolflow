@@ -4,6 +4,7 @@ import { Label } from './label';
 import { Textarea } from './textarea';
 import { ConditionPicker } from './condition-picker';
 import { DateTimePicker } from './datetime-picker';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { X, Calendar, Package, User, CheckCircle, AlertTriangle } from 'lucide-react';
 
@@ -69,6 +70,9 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
     condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
     notes?: string;
   }>>>({});
+  
+  // Initialize hooks
+  const { toast } = useToast();
 
   // Initialize form data when sidebar opens
   React.useEffect(() => {
@@ -105,7 +109,11 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       );
 
       if (missingConditions) {
-        alert('Please set conditions for all items');
+        toast({
+          type: 'error',
+          title: 'Missing Conditions',
+          description: 'Please set conditions for all items before proceeding'
+        });
         return;
       }
 
@@ -141,19 +149,31 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
 
       // Validate required fields
       if (!formData.newDueDate || !formData.reason) {
-        alert('Please fill in all required fields');
+        toast({
+          type: 'error',
+          title: 'Missing Information',
+          description: 'Please fill in all required fields'
+        });
         return;
       }
 
       // Validate new due date is in the future
       const newDueDate = new Date(formData.newDueDate);
       if (isNaN(newDueDate.getTime())) {
-        alert('Please enter a valid date');
+        toast({
+          type: 'error',
+          title: 'Invalid Date',
+          description: 'Please enter a valid date'
+        });
         return;
       }
 
       if (newDueDate <= new Date()) {
-        alert('New due date must be in the future');
+        toast({
+          type: 'error',
+          title: 'Invalid Date',
+          description: 'New due date must be in the future'
+        });
         return;
       }
 

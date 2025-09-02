@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InventorySidebar } from '@/components/ui/inventory-sidebar';
 import type { InventoryItem } from '@/components/ui/inventory-sidebar';
+import { useToast } from '@/hooks/use-toast';
+import { useLoading } from '@/lib/loading-context';
 
 import { cn } from '@/lib/utils';
 import {
@@ -186,6 +188,10 @@ export default function Inventory() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Initialize hooks
+  const { showLoading, hideLoading } = useLoading();
+  const { toast } = useToast();
 
   const allItems = [...tools, ...materials];
   const selectedItemsData: SelectedItem[] = allItems
@@ -345,6 +351,25 @@ export default function Inventory() {
 
   const handleFormSubmit = async (formData: FormData) => {
     try {
+      // Show loading with appropriate message
+      if (sidebarType === 'create') {
+        showLoading('Creating items...');
+      } else if (sidebarType === 'edit') {
+        showLoading('Updating item...');
+      } else if (sidebarType === 'process') {
+        const hasTools = selectedItemsData.filter(item => item.type === 'tool').length > 0;
+        const hasMaterials = selectedItemsData.filter(item => item.type === 'material').length > 0;
+        if (hasTools && hasMaterials) {
+          showLoading('Processing mixed transaction...');
+        } else if (hasTools) {
+          showLoading('Processing borrowing transaction...');
+        } else {
+          showLoading('Processing consumption transaction...');
+        }
+      } else if (sidebarType === 'delete') {
+        showLoading('Deleting items...');
+      }
+      
       let response, result;
       // CREATE
       if (sidebarType === 'create') {
@@ -400,6 +425,14 @@ export default function Inventory() {
           result = await response.json();
           if (!result.success) throw new Error(result.message || 'Failed to create material');
         }
+        
+        // Show success toast for create
+        const totalCreated = toolsToCreate.length + materialsToCreate.length;
+        toast({
+          type: 'success',
+          title: 'Items Created Successfully',
+          description: `Successfully created ${totalCreated} item${totalCreated > 1 ? 's' : ''}`
+        });
       }
       // PROCESS (BORROW/CONSUME)
       else if (sidebarType === 'process') {
@@ -433,6 +466,13 @@ export default function Inventory() {
             if (!result.success) {
               throw new Error(result.message || 'Failed to process borrowing');
             }
+            
+            // Show success toast for borrowing
+            toast({
+              type: 'success',
+              title: 'Borrowing Processed',
+              description: `Successfully processed borrowing for ${formData.borrowerName}`
+            });
           } catch (error) {
             console.error('Borrowing error:', error);
             throw new Error(error instanceof Error ? error.message : 'Failed to process borrowing');
@@ -462,6 +502,13 @@ export default function Inventory() {
             if (!result.success) {
               throw new Error(result.message || 'Failed to process consumption');
             }
+            
+            // Show success toast for consumption
+            toast({
+              type: 'success',
+              title: 'Consumption Processed',
+              description: `Successfully processed consumption for ${formData.consumerName}`
+            });
           } catch (error) {
             console.error('Consumption error:', error);
             throw new Error(error instanceof Error ? error.message : 'Failed to process consumption');
@@ -508,6 +555,13 @@ export default function Inventory() {
         });
         result = await response.json();
         if (!result.success) throw new Error(result.message || 'Failed to update item');
+        
+        // Show success toast for edit
+        toast({
+          type: 'success',
+          title: 'Item Updated',
+          description: `Successfully updated ${formData.name}`
+        });
       }
       // DELETE
       else if (sidebarType === 'delete') {
@@ -518,6 +572,14 @@ export default function Inventory() {
           result = await response.json();
           if (!result.success) throw new Error(result.message || `Failed to delete ${item.name}`);
         }
+        
+        // Show success toast for delete
+        const itemCount = Array.isArray(formData.items) ? formData.items.length : 0;
+        toast({
+          type: 'success',
+          title: 'Items Deleted',
+          description: `Successfully deleted ${itemCount} item${itemCount > 1 ? 's' : ''}`
+        });
       }
       // Tambahkan aksi lain (process) jika dibutuhkan
       // Refresh data
@@ -528,10 +590,18 @@ export default function Inventory() {
         fetchTools(searchQuery),
         fetchMaterials(searchQuery)
       ]);
+      
+      hideLoading();
       setTools(toolsData);
       setMaterials(materialsData);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Operation failed');
+      hideLoading();
+      const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+      toast({
+        type: 'error',
+        title: 'Operation Failed',
+        description: errorMessage
+      });
       console.error('Inventory CRUD error:', error);
     }
   };

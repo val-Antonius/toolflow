@@ -53,7 +53,6 @@ interface UnifiedReportPreviewProps {
   sortOrder?: 'asc' | 'desc';
   onSort?: (column: string) => void;
   onPageChange?: (page: number) => void;
-  onExport?: (format: 'csv' | 'excel') => void;
 }
 
 export function UnifiedReportPreview({
@@ -66,8 +65,7 @@ export function UnifiedReportPreview({
   sortBy,
   sortOrder = 'desc',
   onSort,
-  onPageChange,
-  onExport
+  onPageChange
 }: UnifiedReportPreviewProps) {
   const { isExporting, exportProgress, exportReportData } = usePDFExport();
 
@@ -321,40 +319,16 @@ export function UnifiedReportPreview({
             </div>
             
             {reportConfig.supportsExport && (
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePDFExport}
-                  disabled={isExporting || !data || data.length === 0}
-                  className="h-8"
-                >
-                  <FileDown className="w-4 h-4 mr-2" />
-                  PDF
-                </Button>
-                {onExport && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onExport('csv')}
-                      className="h-8"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      CSV
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onExport('excel')}
-                      className="h-8"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Excel
-                    </Button>
-                  </>
-                )}
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePDFExport}
+                disabled={isExporting || !data || data.length === 0}
+                className="h-8"
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                PDF
+              </Button>
             )}
           </div>
         </div>

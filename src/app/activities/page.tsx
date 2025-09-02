@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContextualSidebar } from '@/components/ui/contextual-sidebar';
+import { useToast } from '@/hooks/use-toast';
+import { useLoading } from '@/lib/loading-context';
 import { cn } from '@/lib/utils';
 import {
   Activity,
@@ -141,6 +143,10 @@ export default function Activities() {
   const [borrowings, setBorrowings] = useState<BorrowingTransaction[]>([]);
   const [consumptions, setConsumptions] = useState<ConsumptionTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Initialize hooks
+  const { showLoading, hideLoading } = useLoading();
+  const { toast } = useToast();
 
   // Load data
   useEffect(() => {
@@ -182,6 +188,13 @@ export default function Activities() {
     (async () => {
       try {
         console.log('Form submission started:', { sidebarType, formData });
+        
+        // Show loading with appropriate message
+        if (sidebarType === 'return') {
+          showLoading('Processing return...');
+        } else if (sidebarType === 'extend') {
+          showLoading('Extending due date...');
+        }
 
         let response, result;
         if (sidebarType === 'return') {
@@ -226,6 +239,13 @@ export default function Activities() {
           }
 
           if (!result.success) throw new Error(result.message || 'Failed to process return');
+          
+          // Show success toast for return
+          toast({
+            type: 'success',
+            title: 'Return Processed',
+            description: `Successfully processed return for ${selectedBorrowing?.borrowerName}`
+          });
 
         } else if (sidebarType === 'extend') {
           const borrowingId = selectedBorrowing?.id;
@@ -268,6 +288,13 @@ export default function Activities() {
           }
 
           if (!result.success) throw new Error(result.message || 'Failed to process extension');
+          
+          // Show success toast for extension
+          toast({
+            type: 'success',
+            title: 'Extension Processed',
+            description: `Successfully extended due date for ${selectedBorrowing?.borrowerName}`
+          });
         }
 
         console.log('Operation successful:', result);
@@ -282,14 +309,17 @@ export default function Activities() {
         setBorrowings(borrowingsData);
         setConsumptions(consumptionsData);
         setLoading(false);
-
-        // Show success message
-        alert(result.message || 'Operation completed successfully');
+        hideLoading();
 
       } catch (error: unknown) {
+        hideLoading();
         console.error('Activities CRUD error:', error);
         const message = error instanceof Error ? error.message : 'Operation failed';
-        alert(message);
+        toast({
+          type: 'error',
+          title: 'Operation Failed',
+          description: message
+        });
       }
     })();
   };

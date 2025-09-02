@@ -126,7 +126,7 @@ export class PDFExporter {
     this.doc.setTextColor(73, 80, 87); // Medium gray
 
     const filterEntries = Object.entries(filters).filter(([key, value]) =>
-      value && value !== 'all' && value !== '' && key !== 'categoryNames'
+      value && value !== 'all' && value !== '' && !['categoryNames'].includes(key)
     );
 
     if (filterEntries.length === 0) {
@@ -479,6 +479,13 @@ export class PDFExporter {
 
   private formatCellValue(value: unknown, column: ReportColumn, row: PDFDataRow): string {
     if (value === null || value === undefined) return '-';
+
+    // Special handling for availability column in tools report
+    if (column.key === 'availability') {
+      const available = row.available || row.availableQuantity || 0;
+      const total = row.total || row.totalQuantity || 0;
+      return `${available}/${total}`;
+    }
 
     // Use custom render function if available
     if (column.render && typeof column.render === 'function') {
