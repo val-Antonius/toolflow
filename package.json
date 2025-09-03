@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-category": "tsx prisma/seed_category.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "migrate:display-ids": "tsx scripts/migrate-display-ids.ts"
