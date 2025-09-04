@@ -89,7 +89,14 @@ interface ConsumptionTransaction {
 const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]> => {
   try {
     const params = new URLSearchParams();
-    if (status) params.append('status', status);
+    if (status) {
+      // Handle comma-separated statuses
+      if (status.includes(',')) {
+        status.split(',').forEach(s => params.append('status', s.trim()));
+      } else {
+        params.append('status', status);
+      }
+    }
 
     console.log('Fetching borrowings with params:', params.toString());
     const response = await fetch(`/api/borrowings?${params.toString()}`);
@@ -154,7 +161,7 @@ export default function Activities() {
       setLoading(true);
       try {
         const [borrowingsData, consumptionsData] = await Promise.all([
-          fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE' : undefined),
+          fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE, OVERDUE' : undefined),
           fetchConsumptions()
         ]);
 
@@ -303,7 +310,7 @@ export default function Activities() {
         // Refresh data
         setLoading(true);
         const [borrowingsData, consumptionsData] = await Promise.all([
-          fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE' : undefined),
+          fetchBorrowings(activeTab === 'borrowing' ? 'ACTIVE, OVERDUE' : undefined),
           fetchConsumptions()
         ]);
         setBorrowings(borrowingsData);
