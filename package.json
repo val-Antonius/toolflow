@@ -20,7 +20,8 @@
     "db:seed-category": "tsx prisma/seed_category.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
-    "migrate:display-ids": "tsx scripts/migrate-display-ids.ts"
+    "migrate:display-ids": "tsx scripts/migrate-display-ids.ts",
+	"postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
