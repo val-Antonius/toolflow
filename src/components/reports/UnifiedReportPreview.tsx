@@ -14,7 +14,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Download,
   FileText,
   BarChart3,
   FileDown

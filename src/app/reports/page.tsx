@@ -354,11 +354,11 @@ export default function Reports() {
     handleApplyFilters();
   };
 
-  const handleExportReport = (format: 'csv' | 'excel') => {
-    if (reportState.selectedReportType) {
-      handleExport(format, reportState.selectedReportType, reportState.filters);
-    }
-  };
+  // const handleExportReport = (format: 'csv' | 'excel') => {
+  //   if (reportState.selectedReportType) {
+  //     handleExport(format, reportState.selectedReportType, reportState.filters);
+  //   }
+  // };
 
   const handleBackToTypeSelection = () => {
     setReportState({
