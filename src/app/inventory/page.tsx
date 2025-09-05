@@ -442,10 +442,10 @@ export default function Inventory() {
         }
 
         if (formData.type === 'borrow') {
-          // Transform payload sesuai schema
+          // --- BORROW ---
           const borrowPayload = {
             borrowerName: formData.borrowerName,
-            dueDate: new Date(formData.dueDate as string).toISOString(), // Pastikan format datetime valid
+            dueDate: new Date(formData.dueDate as string).toISOString(),
             purpose: formData.purpose,
             notes: formData.notes,
             items: formData.items
@@ -457,17 +457,10 @@ export default function Inventory() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(borrowPayload)
             });
-            
             result = await response.json();
-            if (!response.ok) {
-              throw new Error(result.error || 'Failed to process borrowing');
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || result.message || 'Failed to process borrowing');
             }
-            
-            if (!result.success) {
-              throw new Error(result.message || 'Failed to process borrowing');
-            }
-            
-            // Show success toast for borrowing
             toast({
               type: 'success',
               title: 'Borrowing Processed',
@@ -478,7 +471,7 @@ export default function Inventory() {
             throw new Error(error instanceof Error ? error.message : 'Failed to process borrowing');
           }
         } else if (formData.type === 'consume') {
-          // Transform payload sesuai schema
+          // --- CONSUME ---
           const consumePayload = {
             consumerName: formData.consumerName,
             purpose: formData.purpose,
@@ -493,17 +486,10 @@ export default function Inventory() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(consumePayload)
             });
-            
             result = await response.json();
-            if (!response.ok) {
-              throw new Error(result.error || 'Failed to process consumption');
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || result.message || 'Failed to process consumption');
             }
-            
-            if (!result.success) {
-              throw new Error(result.message || 'Failed to process consumption');
-            }
-            
-            // Show success toast for consumption
             toast({
               type: 'success',
               title: 'Consumption Processed',
@@ -513,12 +499,45 @@ export default function Inventory() {
             console.error('Consumption error:', error);
             throw new Error(error instanceof Error ? error.message : 'Failed to process consumption');
           }
-        } else {
-          throw new Error('Invalid transaction type');
-        }
+        } else if (formData.type === 'mixed') {
+          // --- MIXED (parallel) ---
+          console.log('Processing mixed transaction...');
+          try {
+            const [borrowRes, consumeRes] = await Promise.all([
+              fetch('/api/borrowings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData.borrow)
+              }),
+              fetch('/api/consumptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData.consume)
+              })
+            ]);
 
-        if (!response) {
-          throw new Error('Failed to process transaction');
+            const [borrowResult, consumeResult] = await Promise.all([
+              borrowRes.json(),
+              consumeRes.json()
+            ]);
+
+            if (!borrowRes.ok || !borrowResult.success) {
+              throw new Error(borrowResult.error || borrowResult.message || 'Failed to process borrowing');
+            }
+
+            if (!consumeRes.ok || !consumeResult.success) {
+              throw new Error(consumeResult.error || consumeResult.message || 'Failed to process consumption');
+            }
+
+            toast({
+              type: 'success',
+              title: 'Mixed Transaction Processed',
+              description: 'Successfully processed borrowing and consumption'
+            });
+          } catch (error) {
+            console.error('Mixed transaction error:', error);
+            throw new Error(error instanceof Error ? error.message : 'Failed to process mixed transaction');
+          }
         }
       }
       // EDIT

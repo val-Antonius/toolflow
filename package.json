@@ -9,7 +9,7 @@
     "build": "next build && npm run check",
     "start": "next start",
     "lint": "next lint",
-    "use:local": "copy .env.local .env",
+    "use:local": "copy .env.localdev .env",
     "use:azure": "copy .env.azure .env",
     "test:db": "node scripts/test-db.js",
     "test:api": "node scripts/test-api.js",

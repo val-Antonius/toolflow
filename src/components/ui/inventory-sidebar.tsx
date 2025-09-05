@@ -315,47 +315,33 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
         onSubmit(editPayload);
         break;
       case 'process':
-        if (processType === 'borrow' && (hasMixed || hasTools)) {
-          console.log('Processing borrow transaction...');
-          // Validate required fields for borrowing
-          if (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose) {
-            throw new Error('Please fill all required fields for borrowing');
-          }
+        if (hasMixed) {
+        // Handle mixed process - process both borrow and consume
+        console.log('Processing mixed transaction...');
 
-          const dueDate = new Date(borrowForm.dueDate);
-          if (isNaN(dueDate.getTime())) {
-            throw new Error('Invalid due date');
-          }
+        // Validate both forms are complete
+        const borrowComplete = borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose &&
+                              Object.values(selectedUnits).flat().length > 0;
+        const consumeComplete = consumeForm.consumerName && consumeForm.purpose &&
+                              Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0;
 
-          // Validate unit selection
-          const toolsWithoutUnits = selectedItems
-            .filter(item => item.type === 'tool')
-            .filter(tool => !selectedUnits[tool.id] || selectedUnits[tool.id].length === 0);
+        if (!borrowComplete) {
+          throw new Error('Please complete the borrowing form and select tools before submitting');
+        }
 
-          if (toolsWithoutUnits.length > 0) {
-            const toolNames = toolsWithoutUnits.map(t => t.name).join(', ');
-            throw new Error(`Please select at least one unit for: ${toolNames}`);
-          }
+        if (!consumeComplete) {
+          throw new Error('Please complete the consumption form and set material quantities before submitting');
+        }
 
-          // Validate borrow quantities for smart mode
-          const toolsWithInvalidQuantities = selectedItems
-            .filter(item => item.type === 'tool')
-            .filter(tool => {
-              const mode = selectionMode[tool.id];
-              const borrowQty = borrowQuantities[tool.id];
-              const selectedCount = selectedUnits[tool.id]?.length || 0;
-              return mode === 'quantity' && borrowQty > 0 && selectedCount !== borrowQty;
-            });
+        // Validate material quantities
+        validateMaterialQuantities();
 
-          if (toolsWithInvalidQuantities.length > 0) {
-            const toolNames = toolsWithInvalidQuantities.map(t => t.name).join(', ');
-            throw new Error(`Quantity mismatch for: ${toolNames}. Please check your selection.`);
-          }
-
-          const borrowPayload = {
-            type: 'borrow',
+        // Prepare mixed payload
+        const mixedPayload = {
+          type: 'mixed',
+          borrow: {
             borrowerName: borrowForm.borrowerName,
-            dueDate: dueDate.toISOString(),
+            dueDate: new Date(borrowForm.dueDate).toISOString(),
             purpose: borrowForm.purpose,
             notes: borrowForm.notes,
             items: selectedItems
@@ -365,30 +351,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                 units: selectedUnits[tool.id] || [],
                 notes: borrowForm.notes
               }))
-          };
-          onSubmit(borrowPayload);
-        } else if (processType === 'consume' && (hasMixed || hasMaterials)) {
-          console.log('Processing consume transaction...');
-          // Validate required fields for consuming
-          if (!consumeForm.consumerName || !consumeForm.purpose) {
-            throw new Error('Please fill all required fields for consumption');
-          }
-
-          // Enhanced material quantity validation
-          const materialsWithZeroQuantity = selectedItems
-            .filter(item => item.type === 'material')
-            .filter(material => !itemQuantities[material.id] || itemQuantities[material.id] <= 0);
-
-          if (materialsWithZeroQuantity.length > 0) {
-            const materialNames = materialsWithZeroQuantity.map(m => m.name).join(', ');
-            throw new Error(`Please specify consumption quantity for: ${materialNames}`);
-          }
-
-          // Validate material quantities
-          validateMaterialQuantities();
-
-          const consumePayload = {
-            type: 'consume',
+          },
+          consume: {
             consumerName: consumeForm.consumerName,
             purpose: consumeForm.purpose,
             projectName: consumeForm.projectName || undefined,
@@ -399,35 +363,51 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                 materialId: material.id,
                 quantity: Math.max(0.001, itemQuantities[material.id] || 0.001)
               }))
-          };
-          onSubmit(consumePayload);
-        } else if (hasMixed) {
-          // Handle mixed process - process both borrow and consume
-          console.log('Processing mixed transaction...');
-
-          // Validate both forms are complete
-          const borrowComplete = borrowForm.borrowerName && borrowForm.dueDate && borrowForm.purpose &&
-                                Object.values(selectedUnits).flat().length > 0;
-          const consumeComplete = consumeForm.consumerName && consumeForm.purpose &&
-                                 Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0;
-
-          if (!borrowComplete) {
-            throw new Error('Please complete the borrowing form and select tools before submitting');
           }
+        };
+        onSubmit(mixedPayload);
+        } else if (processType === 'borrow' && hasTools) {
+        // Borrow only ...
+          console.log('Processing borrow transaction...');
+            // Validate required fields for borrowing
+            if (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose) {
+              throw new Error('Please fill all required fields for borrowing');
+            }
 
-          if (!consumeComplete) {
-            throw new Error('Please complete the consumption form and set material quantities before submitting');
-          }
+            const dueDate = new Date(borrowForm.dueDate);
+            if (isNaN(dueDate.getTime())) {
+              throw new Error('Invalid due date');
+            }
 
-          // Validate material quantities
-          validateMaterialQuantities();
+            // Validate unit selection
+            const toolsWithoutUnits = selectedItems
+              .filter(item => item.type === 'tool')
+              .filter(tool => !selectedUnits[tool.id] || selectedUnits[tool.id].length === 0);
 
-          // Prepare mixed payload
-          const mixedPayload = {
-            type: 'mixed',
-            borrow: {
+            if (toolsWithoutUnits.length > 0) {
+              const toolNames = toolsWithoutUnits.map(t => t.name).join(', ');
+              throw new Error(`Please select at least one unit for: ${toolNames}`);
+            }
+
+            // Validate borrow quantities for smart mode
+            const toolsWithInvalidQuantities = selectedItems
+              .filter(item => item.type === 'tool')
+              .filter(tool => {
+                const mode = selectionMode[tool.id];
+                const borrowQty = borrowQuantities[tool.id];
+                const selectedCount = selectedUnits[tool.id]?.length || 0;
+                return mode === 'quantity' && borrowQty > 0 && selectedCount !== borrowQty;
+              });
+
+            if (toolsWithInvalidQuantities.length > 0) {
+              const toolNames = toolsWithInvalidQuantities.map(t => t.name).join(', ');
+              throw new Error(`Quantity mismatch for: ${toolNames}. Please check your selection.`);
+            }
+
+            const borrowPayload = {
+              type: 'borrow',
               borrowerName: borrowForm.borrowerName,
-              dueDate: new Date(borrowForm.dueDate).toISOString(),
+              dueDate: dueDate.toISOString(),
               purpose: borrowForm.purpose,
               notes: borrowForm.notes,
               items: selectedItems
@@ -437,23 +417,45 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                   units: selectedUnits[tool.id] || [],
                   notes: borrowForm.notes
                 }))
-            },
-            consume: {
-              consumerName: consumeForm.consumerName,
-              purpose: consumeForm.purpose,
-              projectName: consumeForm.projectName || undefined,
-              notes: consumeForm.notes || undefined,
-              items: selectedItems
+            };
+            onSubmit(borrowPayload);
+          } else if (processType === 'consume' && hasMaterials) {
+            // Consume only ...
+          console.log('Processing consume transaction...');
+              // Validate required fields for consuming
+              if (!consumeForm.consumerName || !consumeForm.purpose) {
+                throw new Error('Please fill all required fields for consumption');
+              }
+
+              // Enhanced material quantity validation
+              const materialsWithZeroQuantity = selectedItems
                 .filter(item => item.type === 'material')
-                .map(material => ({
-                  materialId: material.id,
-                  quantity: Math.max(0.001, itemQuantities[material.id] || 0.001)
-                }))
-            }
-          };
-          onSubmit(mixedPayload);
+                .filter(material => !itemQuantities[material.id] || itemQuantities[material.id] <= 0);
+
+              if (materialsWithZeroQuantity.length > 0) {
+                const materialNames = materialsWithZeroQuantity.map(m => m.name).join(', ');
+                throw new Error(`Please specify consumption quantity for: ${materialNames}`);
+              }
+
+              // Validate material quantities
+              validateMaterialQuantities();
+
+              const consumePayload = {
+                type: 'consume',
+                consumerName: consumeForm.consumerName,
+                purpose: consumeForm.purpose,
+                projectName: consumeForm.projectName || undefined,
+                notes: consumeForm.notes || undefined,
+                items: selectedItems
+                  .filter(item => item.type === 'material')
+                  .map(material => ({
+                    materialId: material.id,
+                    quantity: Math.max(0.001, itemQuantities[material.id] || 0.001)
+                  }))
+              };
+              onSubmit(consumePayload);
         }
-        break;
+      break;
       case 'delete':
         onSubmit({ items: selectedItems });
         break;
