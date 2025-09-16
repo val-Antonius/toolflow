@@ -188,6 +188,10 @@ export default function Inventory() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [toolPage, setToolPage] = useState(1);
+  const [materialPage, setMaterialPage] = useState(1);
+  const pageSize = 10; // Fixed page size, no need for state
   
   // Initialize hooks
   const { showLoading, hideLoading } = useLoading();
@@ -248,30 +252,53 @@ export default function Inventory() {
   const toolCategories = categories.filter((cat) => cat.type === 'TOOL' && allowedToolNames.includes(cat.name));
   const materialCategories = categories.filter((cat) => cat.type === 'MATERIAL' && allowedMaterialNames.includes(cat.name));
 
-  // Load data on component mount and search change
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [toolsData, materialsData, categoriesData] = await Promise.all([
-          fetchTools(searchQuery),
-          fetchMaterials(searchQuery),
-          fetch('/api/categories').then(res => res.json()).then(res => res.success ? res.data : [])
-        ]);
+// Initial load (mount)
+useEffect(() => {
+  const loadInitial = async () => {
+    setLoading(true);
+    try {
+      const [toolsData, materialsData, categoriesData] = await Promise.all([
+        fetchTools(''),
+        fetchMaterials(''),
+        fetch('/api/categories').then(res => res.json()).then(res => res.success ? res.data : [])
+      ]);
+      setTools(toolsData);
+      setMaterials(materialsData);
+      setCategories(categoriesData);
+      setToolPage(1);
+      setMaterialPage(1);
+    } catch (error) {
+      console.error('Error loading inventory data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  loadInitial();
+}, []);
 
-        setTools(toolsData);
-        setMaterials(materialsData);
-        setCategories(categoriesData);
-      } catch (error) {
-        console.error('Error loading inventory data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(loadData, 300); // Debounce search
-    return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+// Search updates with debounce but without full-page loading state
+useEffect(() => {
+  if (searchQuery === '') return; // avoid duplicate initial fetch; initial effect handles empty search
+  const loadSearch = async () => {
+    setIsSearching(true);
+    try {
+      const [toolsData, materialsData] = await Promise.all([
+        fetchTools(searchQuery),
+        fetchMaterials(searchQuery)
+      ]);
+      setTools(toolsData);
+      setMaterials(materialsData);
+      setToolPage(1);
+      setMaterialPage(1);
+    } catch (error) {
+      console.error('Error loading inventory data:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  const debounceTimer = setTimeout(loadSearch, 300);
+  return () => clearTimeout(debounceTimer);
+}, [searchQuery]);
 
   // Smart detection of selected item types
   const selectedTools = selectedItemsData.filter(item => item.type === 'tool');
@@ -542,35 +569,52 @@ export default function Inventory() {
       }
       // EDIT
       else if (sidebarType === 'edit') {
-        // Gunakan editItem.type untuk menentukan jenis item
+        // Determine type from current editing item
         const isTool = editItem?.type === 'tool';
-        
-        // Transform payload sesuai dengan tipe item
-        const transformedData = isTool
-          ? {
-              name: formData.name,
-              categoryId: formData.categoryId,
-              totalQuantity: Number(formData.totalQuantity),
-              availableQuantity: Number(formData.availableQuantity),
-              condition: typeof formData.condition === 'string' ? formData.condition.toUpperCase() : 'GOOD',
-              location: formData.location,
-              supplier: formData.supplier
-            }
-          : {
-              name: formData.name,
-              categoryId: formData.categoryId,
-              currentQuantity: Number(formData.currentQuantity),
-              thresholdQuantity: Number(formData.thresholdQuantity),
-              unit: formData.unit,
-              location: formData.location,
-              supplier: formData.supplier
-            };
 
-        const endpoint = isTool ? `/api/tools/${formData.id}` : `/api/materials/${formData.id}`;
+        // Build payload from provided fields; only include quantities if present
+        interface EditFormData {
+          name?: string;
+          category?: string;
+          location?: string;
+          supplier?: string;
+          unit?: string;
+          totalQuantity?: number;
+          availableQuantity?: number;
+          currentQuantity?: number;
+          thresholdQuantity?: number;
+          id?: string;
+        }
+        
+        const typedFormData = formData as EditFormData;
+        const base: Record<string, unknown> = {
+          name: typedFormData.name,
+          categoryId: typedFormData.category,
+          location: typedFormData.location || undefined,
+          supplier: typedFormData.supplier || undefined,
+          unit: !isTool ? typedFormData.unit : undefined,
+        };
+        if (isTool) {
+          if (typedFormData.totalQuantity !== undefined) {
+            base.totalQuantity = Number(typedFormData.totalQuantity);
+          }
+          if (typedFormData.availableQuantity !== undefined) {
+            base.availableQuantity = Number(typedFormData.availableQuantity);
+          }
+        } else {
+          if (typedFormData.currentQuantity !== undefined) {
+            base.currentQuantity = Number(typedFormData.currentQuantity);
+          }
+          if (typedFormData.thresholdQuantity !== undefined) {
+            base.thresholdQuantity = Number(typedFormData.thresholdQuantity);
+          }
+        }
+
+        const endpoint = isTool ? `/api/tools/${typedFormData.id}` : `/api/materials/${typedFormData.id}`;
         response = await fetch(endpoint, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(transformedData)
+          body: JSON.stringify(base)
         });
         result = await response.json();
         if (!result.success) throw new Error(result.message || 'Failed to update item');
@@ -604,15 +648,16 @@ export default function Inventory() {
       // Refresh data
       setSidebarOpen(false);
       setSelectedItems([]);
-      // Panggil ulang data
+      // Panggil ulang data (keep current search, but no full-page loading)
+      setIsSearching(true);
       const [toolsData, materialsData] = await Promise.all([
         fetchTools(searchQuery),
         fetchMaterials(searchQuery)
       ]);
-      
       hideLoading();
       setTools(toolsData);
       setMaterials(materialsData);
+      setIsSearching(false);
     } catch (error) {
       hideLoading();
       const errorMessage = error instanceof Error ? error.message : 'Operation failed';
@@ -637,7 +682,14 @@ export default function Inventory() {
   };
 
   // Check if all items in current tab are selected
-  const currentTabItems = activeTab === 'tools' ? tools : materials;
+  // Pagination helpers
+  const totalToolPages = Math.max(1, Math.ceil(tools.length / pageSize));
+  const totalMaterialPages = Math.max(1, Math.ceil(materials.length / pageSize));
+  const paginatedTools = tools.slice((toolPage - 1) * pageSize, toolPage * pageSize);
+  const paginatedMaterials = materials.slice((materialPage - 1) * pageSize, materialPage * pageSize);
+
+  // Selection helpers should operate on current page items only
+  const currentTabItems = activeTab === 'tools' ? paginatedTools : paginatedMaterials;
   const currentTabIds = currentTabItems.map(item => item.id);
   const isAllSelected = currentTabIds.length > 0 && currentTabIds.every(id => selectedItems.includes(id));
   const isSomeSelected = currentTabIds.some(id => selectedItems.includes(id));
@@ -681,7 +733,7 @@ export default function Inventory() {
       </div>
 
       {/* Search */}
-      <div className="glass rounded-xl p-4">
+          <div className="glass rounded-xl p-4">
         <div className="flex items-center space-x-4">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
@@ -691,6 +743,9 @@ export default function Inventory() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Searching...</div>
+            )}
           </div>
         </div>
       </div>
@@ -796,7 +851,7 @@ export default function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tools.map((tool) => (
+                  {paginatedTools.map((tool) => (
                     <React.Fragment key={tool.id}>
                       <tr
                         className="border-b border-gray-100 hover:bg-white/50 cursor-pointer transition-all-smooth"
@@ -1075,6 +1130,18 @@ export default function Inventory() {
                 </tbody>
               </table>
             </div>
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between p-4 border-t bg-white/50">
+              <div className="text-sm text-muted-foreground">
+                Showing {(tools.length === 0) ? 0 : ((toolPage - 1) * pageSize + 1)}-
+                {Math.min(toolPage * pageSize, tools.length)} of {tools.length}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" disabled={toolPage === 1} onClick={() => setToolPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <div className="text-sm">Page {toolPage} / {totalToolPages}</div>
+                <Button variant="outline" size="sm" disabled={toolPage === totalToolPages} onClick={() => setToolPage(p => Math.min(totalToolPages, p + 1))}>Next</Button>
+              </div>
+            </div>
           </div>
         </TabsContent>
 
@@ -1107,7 +1174,7 @@ export default function Inventory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {materials.map((material) => (
+                  {paginatedMaterials.map((material) => (
                     <React.Fragment key={material.id}>
                       <tr
                         className="border-b border-gray-100 hover:bg-white/50 cursor-pointer transition-all-smooth"
@@ -1300,6 +1367,18 @@ export default function Inventory() {
                   )}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between p-4 border-t bg-white/50">
+              <div className="text-sm text-muted-foreground">
+                Showing {(materials.length === 0) ? 0 : ((materialPage - 1) * pageSize + 1)}-
+                {Math.min(materialPage * pageSize, materials.length)} of {materials.length}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" disabled={materialPage === 1} onClick={() => setMaterialPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <div className="text-sm">Page {materialPage} / {totalMaterialPages}</div>
+                <Button variant="outline" size="sm" disabled={materialPage === totalMaterialPages} onClick={() => setMaterialPage(p => Math.min(totalMaterialPages, p + 1))}>Next</Button>
+              </div>
             </div>
           </div>
         </TabsContent>

@@ -93,15 +93,55 @@ const conditions = [
   { value: 'POOR', label: 'Poor' }
 ];
 
+interface Category {
+  id: string;
+  name: string;
+  type: string;
+}
+
+type SidebarType = 'create' | 'edit' | 'process' | 'delete';
+type EditTab = 'basic' | 'quantities';
+type ProcessType = 'borrow' | 'consume';
+type SelectionMode = 'manual' | 'quantity';
+
+interface FormData {
+  name?: string;
+  category?: string;
+  quantity?: number;
+  totalQuantity?: number;
+  availableQuantity?: number;
+  currentQuantity?: number;
+  threshold?: number;
+  thresholdQuantity?: number;
+  unit?: string;
+  location?: string;
+  supplier?: string;
+  id?: string;
+}
+
+interface BorrowFormData {
+  borrowerName: string;
+  dueDate: string;
+  purpose: string;
+  notes: string;
+}
+
+interface ConsumeFormData {
+  consumerName: string;
+  purpose: string;
+  projectName: string;
+  notes: string;
+}
+
 interface SidebarFormProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'create' | 'edit' | 'process' | 'delete';
+  type: SidebarType;
   selectedItems?: SelectedItem[];
   editItem?: InventoryItem;
   onSubmit: (formData: unknown) => void;
-  toolCategories?: Array<{ id: string; name: string; type: string }>;
-  materialCategories?: Array<{ id: string; name: string; type: string }>;
+  toolCategories?: Category[];
+  materialCategories?: Category[];
 }
 
 // Kategori sekarang berasal dari prop, bukan hardcoded
@@ -115,8 +155,17 @@ const units = [
 ];
 
 
-export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], editItem, onSubmit, toolCategories = [], materialCategories = [] }: SidebarFormProps) {
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
+export function InventorySidebar({ 
+  isOpen, 
+  onClose, 
+  type, 
+  selectedItems = [], 
+  editItem, 
+  onSubmit, 
+  toolCategories = [], 
+  materialCategories = [] 
+}: SidebarFormProps): React.JSX.Element | null {
+  const [formData, setFormData] = useState<FormData>({});
   const [newItems, setNewItems] = useState<NewItem[]>([
     {
       name: '',
@@ -135,14 +184,14 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       }
     }
   ]);
-  const [processType, setProcessType] = useState<'borrow' | 'consume'>('borrow');
-  const [borrowForm, setBorrowForm] = useState({
+  const [processType, setProcessType] = useState<ProcessType>('borrow');
+  const [borrowForm, setBorrowForm] = useState<BorrowFormData>({
     borrowerName: '',
     dueDate: '',
     purpose: '',
     notes: ''
   });
-  const [consumeForm, setConsumeForm] = useState({
+  const [consumeForm, setConsumeForm] = useState<ConsumeFormData>({
     consumerName: '',
     purpose: '',
     projectName: '',
@@ -151,7 +200,8 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const [itemQuantities, setItemQuantities] = useState<Record<string, number>>({});
   const [selectedUnits, setSelectedUnits] = useState<Record<string, string[]>>({});
   const [borrowQuantities, setBorrowQuantities] = useState<Record<string, number>>({});
-  const [selectionMode, setSelectionMode] = useState<Record<string, 'manual' | 'quantity'>>({});
+  const [selectionMode, setSelectionMode] = useState<Record<string, SelectionMode>>({});
+  const [editTab, setEditTab] = useState<EditTab>('basic');
   
   // Initialize hooks
   const { toast } = useToast();
@@ -176,40 +226,45 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
   const selectedTools = selectedItems.filter(item => item.type === 'tool');
   const selectedMaterials = selectedItems.filter(item => item.type === 'material');
 
-  const validateMaterialQuantities = () => {
-  const invalidItems = selectedItems
-    .filter(item => item.type === 'material')
-    .filter(item => {
-      const requestedQty = itemQuantities[item.id] || 0.001;
-      const availableQty = item.quantity || 0;
-      return requestedQty > availableQty;
-    });
+  const validateMaterialQuantities = (): void => {
+    const invalidItems = selectedItems
+      .filter(item => item.type === 'material')
+      .filter(item => {
+        const requestedQty = itemQuantities[item.id] || 0.001;
+        const availableQty = item.quantity || 0;
+        return requestedQty > availableQty;
+      });
 
-  if (invalidItems.length > 0) {
-    const itemList = invalidItems
-      .map(item => `${item.name} (Requested: ${itemQuantities[item.id]}, Available: ${item.quantity})`)
-      .join(', ');
-    throw new Error(`Insufficient stock for: ${itemList}`);
-  }
-};
+    if (invalidItems.length > 0) {
+      const itemList = invalidItems
+        .map(item => `${item.name} (Requested: ${itemQuantities[item.id]}, Available: ${item.quantity})`)
+        .join(', ');
+      throw new Error(`Insufficient stock for: ${itemList}`);
+    }
+  };
 
   useEffect(() => {
     if (type === 'edit' && editItem) {
-      setFormData({
+      const baseData: FormData = {
         name: editItem.name,
         category: editItem.category,
         location: editItem.location || '',
-        supplier: editItem.supplier || '',
-        ...(editItem.type === 'tool'
-          ? {
-              quantity: editItem.total || editItem.totalQuantity || 1,
-            }
-          : {
-              quantity: editItem.quantity || 0,
-              unit: editItem.unit || 'pieces',
-              threshold: editItem.threshold || 10,
-            })
-      });
+        supplier: editItem.supplier || ''
+      };
+
+      if (editItem.type === 'tool') {
+        baseData.quantity = editItem.total || editItem.totalQuantity || 1;
+        baseData.totalQuantity = editItem.total || editItem.totalQuantity || 1;
+        baseData.availableQuantity = editItem.available; // Only use available property
+      } else {
+        baseData.quantity = editItem.quantity || 0;
+        baseData.currentQuantity = editItem.quantity || 0;
+        baseData.unit = editItem.unit || 'pieces';
+        baseData.threshold = editItem.threshold || 10;
+        baseData.thresholdQuantity = editItem.threshold || 10;
+      }
+
+      setFormData(baseData);
     } else {
       setFormData({});
     }
@@ -259,12 +314,37 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
       setItemQuantities({});
       setBorrowQuantities({});
       setSelectionMode({});
+      setEditTab('basic'); // Reset edit tab
     }
+  }, [isOpen]);
+  
+  // Effect to handle body scroll lock
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Save current scroll position
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.classList.add('overflow-hidden');
+    
+    return () => {
+      // Restore scroll position and body overflow
+      const scrollY = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.classList.remove('overflow-hidden');
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     console.log('Form submitted:', { type, borrowForm, consumeForm, itemQuantities });
 
@@ -297,19 +377,24 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
           ? {
               id: editItem.id,
               name: formData.name,
-              categoryId: formData.category,
+              category: formData.category,
               location: formData.location,
               supplier: formData.supplier,
-              totalQuantity: formData.quantity
+              // Apply the quantity change to current total
+              totalQuantity: formData.totalQuantity !== undefined ? formData.totalQuantity : 
+                            Math.max(1, (editItem.total || editItem.totalQuantity || 1) + (formData.quantity || 0)),
+              availableQuantity: formData.availableQuantity
             }
           : {
               id: editItem?.id,
               name: formData.name,
-              categoryId: formData.category,
+              category: formData.category,
               location: formData.location,
               supplier: formData.supplier,
-              currentQuantity: formData.quantity,
-              thresholdQuantity: formData.threshold,
+              // Apply the quantity change to current stock
+              currentQuantity: formData.currentQuantity !== undefined ? formData.currentQuantity : 
+                              Math.max(0, (editItem?.quantity || 0) + (formData.quantity || 0)),
+              thresholdQuantity: formData.thresholdQuantity || formData.threshold,
               unit: formData.unit
             };
         onSubmit(editPayload);
@@ -473,7 +558,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }
   };
 
-  const addNewItem = () => {
+  const addNewItem = (): void => {
     setNewItems(prev => [
       ...prev,
       {
@@ -495,16 +580,16 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     ]);
   };
 
-  const removeNewItem = (index: number) => {
+  const removeNewItem = (index: number): void => {
     if (newItems.length > 1) {
       setNewItems(prev => prev.filter((_, i) => i !== index));
     }
   };
 
   // Smart unit selection functions
-  const selectUnitsByQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]) => {
+  const selectUnitsByQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]): void => {
     // Sort units by condition preference (excellent first, then good, etc.)
-    const conditionPriority = { 'EXCELLENT': 4, 'GOOD': 3, 'FAIR': 2, 'POOR': 1 };
+    const conditionPriority = { 'EXCELLENT': 4, 'GOOD': 3, 'FAIR': 2, 'POOR': 1 } as const;
     const sortedUnits = [...availableUnits].sort((a, b) => {
       const aPriority = conditionPriority[a.condition as keyof typeof conditionPriority] || 0;
       const bPriority = conditionPriority[b.condition as keyof typeof conditionPriority] || 0;
@@ -520,7 +605,11 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const selectUnitsByCondition = (toolId: string, condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', availableUnits: ToolUnit[]) => {
+  const selectUnitsByCondition = (
+    toolId: string, 
+    condition: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR', 
+    availableUnits: ToolUnit[]
+  ): void => {
     const unitsWithCondition = availableUnits.filter(unit => unit.condition === condition);
     const selectedUnitIds = unitsWithCondition.map(unit => unit.id);
 
@@ -530,7 +619,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const toggleSelectionMode = (toolId: string, mode: 'manual' | 'quantity') => {
+  const toggleSelectionMode = (toolId: string, mode: SelectionMode): void => {
     setSelectionMode(prev => ({
       ...prev,
       [toolId]: mode
@@ -551,7 +640,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }
   };
 
-  const updateBorrowQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]) => {
+  const updateBorrowQuantity = (toolId: string, quantity: number, availableUnits: ToolUnit[]): void => {
     setBorrowQuantities(prev => ({
       ...prev,
       [toolId]: quantity
@@ -568,7 +657,11 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }
   };
 
-  const updateConditionDistribution = (index: number, condition: keyof NewItem['conditionDistribution'], value: number) => {
+  const updateConditionDistribution = (
+    index: number, 
+    condition: keyof NewItem['conditionDistribution'], 
+    value: number
+  ): void => {
     setNewItems(prev => prev.map((item, i) => {
       if (i !== index || !item.conditionDistribution) return item;
 
@@ -589,7 +682,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const updateNewItem = (index: number, field: string, value: unknown) => {
+  const updateNewItem = (index: number, field: string, value: unknown): void => {
     setNewItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
 
@@ -665,7 +758,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     }));
   };
 
-  const getTitle = () => {
+  const getTitle = (): string => {
     switch (type) {
       case 'create': return 'Create Items';
       case 'edit': return 'Edit Item';
@@ -677,7 +770,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
 
 
 
-  const renderCreateForm = () => (
+  const renderCreateForm = (): React.JSX.Element => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
@@ -1008,100 +1101,348 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     </div>
   );
 
-  const renderEditForm = () => (
-    <div className="space-y-4">
-      <div>
-         <Label htmlFor="name">Nama Item</Label>
-         <Input
-           id="name"
-           value={(formData.name as string) || ''}
-           onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-           required
-         />
-       </div>
-
-      <div>
-        <Label htmlFor="category">Kategori</Label>
-        <Select value={formData.category as string} onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}>
-          <SelectTrigger>
-            <SelectValue placeholder="Pilih kategori" />
-          </SelectTrigger>
-          <SelectContent>
-            {(editItem?.type === 'tool' ? toolCategories : materialCategories).map((cat: { id: string; name: string; type: string }) => (
-              <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="quantity">Jumlah</Label>
-          <Input
-            id="quantity"
-            type="number"
-            value={(formData.quantity as number) || 1}
-            onChange={(e) => setFormData((prev) => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
-            min="1"
-            required
-          />
-        </div>
-
-        {editItem?.type === 'material' && (
+  const renderEditForm = (): React.JSX.Element => {
+    return (
+      <Tabs value={editTab} onValueChange={(value: string) => setEditTab(value as 'basic' | 'quantities')} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="basic">Basic Info</TabsTrigger>
+          <TabsTrigger value="quantities">Quantities</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="basic" className="space-y-4">
           <div>
-            <Label htmlFor="unit">Unit</Label>
-            <Select value={formData.unit as string} onValueChange={(value) => setFormData((prev) => ({ ...prev, unit: value }))}>
+            <Label htmlFor="name">Nama Item</Label>
+            <Input
+              id="name"
+              value={(formData.name as string) || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="category">Kategori</Label>
+            <Select value={formData.category || ''} onValueChange={(value: string) => setFormData((prev) => ({ ...prev, category: value }))}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>
               <SelectContent>
-                {units.map((unit) => (
-                  <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                {(editItem?.type === 'tool' ? toolCategories : materialCategories).map((cat: Category) => (
+                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
 
-        {/* Note: Tool condition is now managed per unit, not per tool */}
-      </div>
+          {/* Read-only quantity display */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="quantityDisplay">Current Quantity</Label>
+              <Input
+                id="quantityDisplay"
+                type="number"
+                value={formData.quantity || 1}
+                disabled
+                className="bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Use the &ldquo;Quantities&rdquo; tab to adjust quantities</p>
+            </div>
 
-      <div>
-        <Label htmlFor="location">Lokasi</Label>
-        <Input
-          id="location"
-          value={(formData.location as string) || ''}
-          onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, location: e.target.value }))}
-          placeholder="Gudang, Rak, dll"
-        />
-      </div>
+            {editItem?.type === 'material' && (
+              <div>
+                <Label htmlFor="unit">Unit</Label>
+                <Select value={formData.unit || ''} onValueChange={(value: string) => setFormData((prev) => ({ ...prev, unit: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {units.map((unit) => (
+                      <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
-      <div>
-        <Label htmlFor="supplier">Supplier</Label>
-        <Input
-          id="supplier"
-          value={(formData.supplier as string) || ''}
-          onChange={(e) => setFormData((prev: Record<string, unknown>) => ({ ...prev, supplier: e.target.value }))}
-          placeholder="Nama supplier (opsional)"
-        />
-      </div>
+          <div>
+            <Label htmlFor="location">Lokasi</Label>
+            <Input
+              id="location"
+              value={formData.location || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+              placeholder="Gudang, Rak, dll"
+            />
+          </div>
 
-      {editItem?.type === 'material' && (
-        <div>
-          <Label htmlFor="threshold">Low Stock Threshold</Label>
-          <Input
-            id="threshold"
-            type="number"
-            value={(formData.threshold as number) || 10}
-            onChange={(e) => setFormData((prev) => ({ ...prev, threshold: parseInt(e.target.value) || 10 }))}
-            min="1"
-          />
-        </div>
-      )}
-    </div>
-  );
+          <div>
+            <Label htmlFor="supplier">Supplier</Label>
+            <Input
+              id="supplier"
+              value={formData.supplier || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, supplier: e.target.value }))}
+              placeholder="Nama supplier (opsional)"
+            />
+          </div>
 
-  const renderBorrowForm = (items: SelectedItem[]) => {
+          {editItem?.type === 'material' && (
+            <div>
+              <Label htmlFor="threshold">Low Stock Threshold</Label>
+              <Input
+                id="threshold"
+                type="number"
+                value={formData.threshold || 10}
+                onChange={(e) => setFormData((prev) => ({ ...prev, threshold: parseInt(e.target.value) || 10 }))}
+                min="1"
+              />
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="quantities" className="space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-medium text-blue-900 mb-2">Quantity Management</h3>
+            <p className="text-sm text-blue-700">Add or remove items from the current stock. Use positive numbers to add, negative to subtract.</p>
+          </div>
+          
+          {editItem?.type === 'tool' ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium mb-3">Tool Quantities</h4>
+                <div className="space-y-4">
+                  <div className="p-3 bg-white rounded-lg border border-gray-200">
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Current Total Quantity</Label>
+                    <div className="text-2xl font-bold text-gray-900">{editItem?.total || editItem?.totalQuantity || 1}</div>
+                    <div className="text-sm text-gray-500">Available: {editItem?.available || formData.quantity || 1}</div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Add/Remove Quantity</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          value={formData.quantity || 0}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            setFormData(prev => ({ ...prev, quantity: value }));
+                          }}
+                          placeholder="Enter quantity to add (+) or remove (-)"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const current = editItem?.total || editItem?.totalQuantity || 1;
+                            const changeAmount = formData.quantity || 0;
+                            const newTotal = Math.max(1, current + changeAmount);
+                            setFormData(prev => ({ ...prev, totalQuantity: newTotal }));
+                          }}
+                        >
+                          Apply Change
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Preview: {editItem?.total || editItem?.totalQuantity || 1} + ({formData.quantity || 0}) = {Math.max(1, (editItem?.total || editItem?.totalQuantity || 1) + (formData.quantity || 0))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Info className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-yellow-800">
+                        <strong>Examples:</strong>
+                        <ul className="mt-1 space-y-1 text-xs">
+                          <li>• Enter &quot;5&quot; to add 5 tools</li>
+                          <li>• Enter &quot;-3&quot; to remove 3 tools</li>
+                          <li>• Total cannot go below 1</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Label>Available Quantity (Read-only)</Label>
+                  <div>
+                    <Label>Available Quantity</Label>
+                    <Input
+                      type="number"
+                      value={editItem?.available || formData.quantity || 1}
+                      disabled
+                      className="bg-gray-100 text-gray-500 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Auto-calculated based on borrowings</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium mb-3">Material Quantities</h4>
+                <div className="space-y-4">
+                  <div className="p-3 bg-white rounded-lg border border-gray-200">
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Current Stock</Label>
+                    <div className="text-2xl font-bold text-gray-900">{editItem?.quantity || 0} {editItem?.unit}</div>
+                    <div className="text-sm text-gray-500">Threshold: {editItem?.threshold || 10} {editItem?.unit}</div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Add/Remove Stock</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          value={formData.quantity || 0}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            setFormData(prev => ({ ...prev, quantity: value }));
+                          }}
+                          placeholder="Enter quantity to add (+) or remove (-)"
+                          step="0.1"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const current = editItem?.quantity || 0;
+                            const changeAmount = formData.quantity || 0;
+                            const newStock = Math.max(0, current + changeAmount);
+                            setFormData(prev => ({ ...prev, currentQuantity: newStock }));
+                          }}
+                        >
+                          Apply Change
+                        </Button>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Preview: {editItem?.quantity || 0} + ({formData.quantity || 0}) = {Math.max(0, (editItem?.quantity || 0) + (formData.quantity || 0))} {editItem?.unit}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <Info className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-yellow-800">
+                        <strong>Examples:</strong>
+                        <ul className="mt-1 space-y-1 text-xs">
+                          <li>• Enter &quot;15&quot; to add 15 units to stock</li>
+                          <li>• Enter &quot;-5&quot; to remove 5 units from stock</li>
+                          <li>• Stock cannot go below 0</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <div>
+                    <Label>Low Stock Threshold</Label>
+                    <Input
+                      type="number"
+                      value={formData.threshold || 10}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 10;
+                        setFormData(prev => ({ ...prev, threshold: value, thresholdQuantity: value }));
+                      }}
+                      min="0"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Quick Actions */}
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-medium text-green-900 mb-3">Quick Add Actions</h4>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: 10 }));
+                    }}
+                  >
+                    Add 10
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: 25 }));
+                    }}
+                  >
+                    Add 25
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: 50 }));
+                    }}
+                  >
+                    Add 50
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: 100 }));
+                    }}
+                  >
+                    Add 100
+                  </Button>
+                </div>
+                <h4 className="font-medium text-red-900 mb-3">Quick Remove Actions</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: -5 }));
+                    }}
+                  >
+                    Remove 5
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, quantity: -10 }));
+                    }}
+                  >
+                    Remove 10
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const current = editItem?.quantity || 0;
+                      setFormData(prev => ({ ...prev, quantity: -current }));
+                    }}
+                  >
+                    Remove All
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    );
+  };
+
+  const renderBorrowForm = (items: SelectedItem[]): React.JSX.Element => {
     console.log('Rendering borrow form with items:', items);
     console.log('Items with units:', items.map(item => ({ id: item.id, name: item.name, units: item.units })));
 
@@ -1541,7 +1882,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     );
 };
 
-  const renderConsumeForm = (items: SelectedItem[]) => {
+  const renderConsumeForm = (items: SelectedItem[]): React.JSX.Element => {
     console.log('Rendering consume form with items:', items);
     console.log('Items with quantities:', items.map(item => ({
       id: item.id,
@@ -1852,7 +2193,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     );
 };
 
-  const renderProcessForm = () => {
+  const renderProcessForm = (): React.JSX.Element => {
     if (hasMixed) {
       return (
         <div className="space-y-6">
@@ -1961,7 +2302,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
 
 
 
-  const renderDeleteForm = () => (
+  const renderDeleteForm = (): React.JSX.Element => (
     <div className="space-y-4">
       <div className="p-4 bg-red-50 rounded-lg border border-red-200">
         <div className="flex items-center space-x-2 mb-2">
@@ -2005,16 +2346,18 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
     </div>
   );
 
+
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
+      {/* Backdrop - covers entire screen */}
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm"
         onClick={onClose}
+        style={{ height: '100vh', width: '100vw' }}
       />
 
       {/* Sidebar */}
-      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-hidden transition-all-smooth">
+      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-hidden transition-all-smooth relative z-10">
         <div className="h-full overflow-y-auto">
           <div className="p-6">
           {/* Header */}
@@ -2177,7 +2520,7 @@ export function InventorySidebar({ isOpen, onClose, type, selectedItems = [], ed
                   type="button"
                   variant="outline"
                   onClick={onClose}
-                  className="flex-1 hover:bg-white hover:shadow-sm transition-all duration-200"
+                  className="flex-1 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all duration-200"
                 >
                   Cancel
                 </Button>
