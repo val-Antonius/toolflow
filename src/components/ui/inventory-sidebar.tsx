@@ -383,7 +383,8 @@ export function InventorySidebar({
               // Apply the quantity change to current total
               totalQuantity: formData.totalQuantity !== undefined ? formData.totalQuantity : 
                             Math.max(1, (editItem.total || editItem.totalQuantity || 1) + (formData.quantity || 0)),
-              availableQuantity: formData.availableQuantity
+              availableQuantity: formData.availableQuantity !== undefined ? formData.availableQuantity :
+                            Math.max(0, (editItem.available || editItem.available || 0) + (formData.quantity || 0))
             }
           : {
               id: editItem?.id,
@@ -2351,13 +2352,12 @@ export function InventorySidebar({
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop - covers entire screen */}
       <div
-        className="fixed inset-0 bg-black/20 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
         onClick={onClose}
-        style={{ height: '100vh', width: '100vw' }}
       />
 
       {/* Sidebar */}
-      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-hidden transition-all-smooth relative z-10">
+      <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-y-auto transition-all-smooth">
         <div className="h-full overflow-y-auto">
           <div className="p-6">
           {/* Header */}
