@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
 import { Badge } from './badge';
 import { DateTimePicker } from './datetime-picker';
 import { useToast } from '@/hooks/use-toast';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { cn } from '@/lib/utils';
 import {
   X,
@@ -45,6 +46,8 @@ export interface InventoryItem {
    threshold?: number;
    supplier?: string;
    location?: string;
+   currentQuantity?: number;
+   thresholdQuantity?: number;
  }
 
 export interface SelectedItem extends InventoryItem {
@@ -203,6 +206,9 @@ export function InventorySidebar({
   const [selectionMode, setSelectionMode] = useState<Record<string, SelectionMode>>({});
   const [editTab, setEditTab] = useState<EditTab>('basic');
   
+  // Use BodyScroll
+  useBodyScrollLock(isOpen); // gunakan isOpen karena sidebar hanya lock saat terbuka
+
   // Initialize hooks
   const { toast } = useToast();
 
@@ -244,31 +250,29 @@ export function InventorySidebar({
   };
 
   useEffect(() => {
-    if (type === 'edit' && editItem) {
-      const baseData: FormData = {
-        name: editItem.name,
-        category: editItem.category,
-        location: editItem.location || '',
-        supplier: editItem.supplier || ''
-      };
+  if (type === 'edit' && editItem) {
+    const baseData: FormData = {
+      name: editItem.name,
+      category: editItem.category,
+      location: editItem.location || '',
+      supplier: editItem.supplier || ''
+    };
 
-      if (editItem.type === 'tool') {
-        baseData.quantity = editItem.total || editItem.totalQuantity || 1;
-        baseData.totalQuantity = editItem.total || editItem.totalQuantity || 1;
-        baseData.availableQuantity = editItem.available; // Only use available property
-      } else {
-        baseData.quantity = editItem.quantity || 0;
-        baseData.currentQuantity = editItem.quantity || 0;
-        baseData.unit = editItem.unit || 'pieces';
-        baseData.threshold = editItem.threshold || 10;
-        baseData.thresholdQuantity = editItem.threshold || 10;
-      }
-
-      setFormData(baseData);
-    } else {
-      setFormData({});
+    if (editItem.type === 'tool') {
+      baseData.totalQuantity = editItem.total || editItem.totalQuantity || 1;
+      baseData.availableQuantity = editItem.available;
+    } else if (editItem.type === 'material') {
+      // Gunakan currentQuantity untuk material, bukan quantity
+      baseData.currentQuantity = editItem.currentQuantity || editItem.quantity || 0;
+      baseData.thresholdQuantity = editItem.thresholdQuantity || editItem.threshold || 10;
+      baseData.unit = editItem.unit || 'pieces';
     }
-  }, [type, editItem, isOpen]);
+
+    setFormData(baseData);
+  } else {
+    setFormData({});
+  }
+}, [type, editItem, isOpen]);
 
   // Initialize item quantities when items are selected
   useEffect(() => {
@@ -382,9 +386,7 @@ export function InventorySidebar({
               supplier: formData.supplier,
               // Apply the quantity change to current total
               totalQuantity: formData.totalQuantity !== undefined ? formData.totalQuantity : 
-                            Math.max(1, (editItem.total || editItem.totalQuantity || 1) + (formData.quantity || 0)),
-              availableQuantity: formData.availableQuantity !== undefined ? formData.availableQuantity :
-                            Math.max(0, (editItem.available || editItem.available || 0) + (formData.quantity || 0))
+                            Math.max(1, (editItem.total || editItem.totalQuantity || 1) + (formData.quantity || 0))
             }
           : {
               id: editItem?.id,
@@ -393,11 +395,12 @@ export function InventorySidebar({
               location: formData.location,
               supplier: formData.supplier,
               // Apply the quantity change to current stock
-              currentQuantity: formData.currentQuantity !== undefined ? formData.currentQuantity : 
-                              Math.max(0, (editItem?.quantity || 0) + (formData.quantity || 0)),
+              currentQuantity: formData.currentQuantity,
               thresholdQuantity: formData.thresholdQuantity || formData.threshold,
               unit: formData.unit
             };
+        
+        console.log('Edit payload:', editPayload); // Debug log
         onSubmit(editPayload);
         break;
       case 'process':
@@ -2358,7 +2361,6 @@ export function InventorySidebar({
 
       {/* Sidebar */}
       <div className="ml-auto w-full max-w-2xl glass border-l border-white/20 h-full overflow-y-auto transition-all-smooth">
-        <div className="h-full overflow-y-auto">
           <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -2590,7 +2592,6 @@ export function InventorySidebar({
             </div>
           </form>
           </div>
-        </div>
       </div>
     </div>
   );

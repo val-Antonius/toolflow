@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { UpdateToolSchema } from '@/lib/validations'
-import { Tool } from '@prisma/client'
+import { Tool, ToolCondition } from '@prisma/client'
 import {
   successResponse,
   errorResponse,
@@ -96,6 +96,25 @@ export async function PUT(
 
     // Business logic validation
     if (data.totalQuantity !== undefined || data.availableQuantity !== undefined) {
+      const currentBorrowedQuantity = Number(existingTool.totalQuantity) - Number(existingTool.availableQuantity)
+      
+      // Jika totalQuantity diupdate dan availableQuantity tidak diberikan secara eksplisit
+      if (data.totalQuantity !== undefined && data.availableQuantity === undefined) {
+        const newTotalQuantity = Number(data.totalQuantity)
+        const oldTotalQuantity = Number(existingTool.totalQuantity)
+        const quantityDifference = newTotalQuantity - oldTotalQuantity
+        
+        // Tambahkan perubahan quantity ke available quantity
+        // Available quantity = old available + quantity difference
+        data.availableQuantity = Number(existingTool.availableQuantity) + quantityDifference
+        
+        // Pastikan available quantity tidak negatif
+        data.availableQuantity = Math.max(0, data.availableQuantity)
+        
+        // Pastikan available quantity tidak melebihi total quantity
+        data.availableQuantity = Math.min(data.availableQuantity, newTotalQuantity)
+      }
+
       const newTotalQuantity = data.totalQuantity !== undefined ? Number(data.totalQuantity) : Number(existingTool.totalQuantity)
       const newAvailableQuantity = data.availableQuantity !== undefined ? Number(data.availableQuantity) : Number(existingTool.availableQuantity)
 
@@ -105,18 +124,17 @@ export async function PUT(
       }
 
       // Check if reducing total quantity below borrowed amount
-      const borrowedQuantity = Number(existingTool.totalQuantity) - Number(existingTool.availableQuantity)
-      if (newTotalQuantity < borrowedQuantity) {
+      if (newTotalQuantity < currentBorrowedQuantity) {
         return errorResponse(
-          `Cannot reduce total quantity below borrowed amount (${borrowedQuantity} currently borrowed)`,
+          `Cannot reduce total quantity below borrowed amount (${currentBorrowedQuantity} currently borrowed)`,
           400
         )
       }
 
       // Adjust available quantity if total quantity is reduced
-      if (data.totalQuantity !== undefined && data.availableQuantity === undefined) {
-        data.availableQuantity = newTotalQuantity - borrowedQuantity
-      }
+      // if (data.totalQuantity !== undefined && data.availableQuantity === undefined) {
+      //   data.availableQuantity = newTotalQuantity - borrowedQuantity
+      // }
     }
 
     // Update tool
@@ -143,6 +161,32 @@ export async function PUT(
         }
       },
     })
+
+    // Tambahkan unit baru jika ada penambahan kuantitas
+    if (data.totalQuantity !== undefined) {
+      const newTotalQuantity = Number(data.totalQuantity)
+      const oldTotalQuantity = Number(existingTool.totalQuantity)
+      const unitsToAdd = newTotalQuantity - oldTotalQuantity
+
+      if (unitsToAdd > 0) {
+        // Cari unitNumber terakhir yang sudah ada
+        const lastUnit = await prisma.toolUnit.findFirst({
+          where: { toolId: id },
+          orderBy: { unitNumber: 'desc' }
+        })
+        const startUnitNumber = lastUnit ? lastUnit.unitNumber + 1 : oldTotalQuantity + 1
+
+        // Buat array unit baru
+        const newUnits = Array.from({ length: unitsToAdd }, (_, i) => ({
+          toolId: id,
+          unitNumber: startUnitNumber + i,
+          condition: ToolCondition.EXCELLENT,
+          isAvailable: true,
+          notes: ''
+        }))
+        await prisma.toolUnit.createMany({ data: newUnits })
+      }
+    }
 
     // Log activity
     await logActivity('TOOL', id, 'UPDATE', undefined, existingTool, updatedTool)

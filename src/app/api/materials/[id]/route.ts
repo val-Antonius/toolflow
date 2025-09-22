@@ -8,6 +8,7 @@ import {
   handleDatabaseError,
   logActivity
 } from '@/lib/api-utils'
+import { Prisma } from '@prisma/client'
 
 // GET /api/materials/[id] - Get material by ID
 export async function GET(
@@ -51,6 +52,13 @@ export async function GET(
     console.error('Error fetching material:', error)
     return handleDatabaseError(error)
   }
+}
+
+// Utility function to remove undefined values with proper typing
+function removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, value]) => value !== undefined)
+  ) as Partial<T>
 }
 
 // PUT /api/materials/[id] - Update material
@@ -100,10 +108,25 @@ export async function PUT(
       return errorResponse('Threshold quantity cannot be negative', 400)
     }
 
+    // Prepare update data using Prisma types - more type-safe approach
+    const updateData: Prisma.MaterialUpdateInput = removeUndefined({
+      name: data.name,
+      categoryId: data.categoryId,
+      currentQuantity: data.currentQuantity,
+      thresholdQuantity: data.thresholdQuantity,
+      unit: data.unit,
+      location: data.location,
+      supplier: data.supplier,
+      unitPrice: data.unitPrice,
+      notes: data.notes,
+    })
+
+    console.log('Update data:', updateData) // Debug log
+
     // Update material
     const updatedMaterial = await prisma.material.update({
       where: { id },
-      data,
+      data: updateData,
       include: {
         category: {
           select: { name: true, type: true }
@@ -115,6 +138,8 @@ export async function PUT(
         }
       },
     })
+
+    console.log('Updated material:', updatedMaterial) // Debug log
 
     // Log activity
     await logActivity('MATERIAL', id, 'UPDATE', undefined, existingMaterial, updatedMaterial)
