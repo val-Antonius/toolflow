@@ -154,7 +154,8 @@ const units = [
   { value: 'meter', label: 'Meters (m)' },
   { value: 'liters', label: 'Liters (L)' },
   { value: 'pieces', label: 'Pieces (pcs)' },
-  { value: 'boxes', label: 'Boxes' }
+  { value: 'boxes', label: 'Boxes' },
+  { value: 'roll', labe: 'Rolls'}
 ];
 
 
@@ -1023,7 +1024,8 @@ export function InventorySidebar({
                           { unit: 'kg', label: 'Kilograms', icon: '⚖️', category: 'weight' },
                           { unit: 'meter', label: 'Meters', icon: '📏', category: 'length' },
                           { unit: 'liters', label: 'Liters', icon: '🪣', category: 'volume' },
-                          { unit: 'boxes', label: 'Boxes', icon: '📦', category: 'container' }
+                          { unit: 'boxes', label: 'Boxes', icon: '📦', category: 'container' },
+                          { unit: 'roll', label: 'Rolls', icon: '🧻', category: 'length' }
                         ];
 
                         // Smart suggestions based on category
@@ -1037,7 +1039,8 @@ export function InventorySidebar({
                           suggestions = [
                             { unit: 'meter', label: 'Meters', icon: '📏', category: 'length' },
                             { unit: 'pieces', label: 'Pieces', icon: '📦', category: 'count' },
-                            ...suggestions.filter(s => !['meter', 'pieces'].includes(s.unit))
+                            { unit: 'roll', label: 'Rolls', icon: '🌀', category: 'lenght' },
+                            ...suggestions.filter(s => !['meter', 'pieces', 'roll'].includes(s.unit))
                           ];
                         } else if (categoryName.includes('powder') || categoryName.includes('cement')) {
                           suggestions = [

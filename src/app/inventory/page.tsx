@@ -9,6 +9,7 @@ import { InventorySidebar } from '@/components/ui/inventory-sidebar';
 import type { InventoryItem } from '@/components/ui/inventory-sidebar';
 import { useToast } from '@/hooks/use-toast';
 import { useLoading } from '@/lib/loading-context';
+import { createPortal } from 'react-dom';
 
 import { cn } from '@/lib/utils';
 import {
@@ -278,7 +279,7 @@ useEffect(() => {
 
 // Search updates with debounce but without full-page loading state
 useEffect(() => {
-  if (searchQuery === '') return; // avoid duplicate initial fetch; initial effect handles empty search
+  //if (searchQuery === '') return; // avoid duplicate initial fetch; initial effect handles empty search
   const loadSearch = async () => {
     setIsSearching(true);
     try {
@@ -752,6 +753,8 @@ useEffect(() => {
 
       {/* Smart Floating Action Box */}
       {selectedItems.length > 0 && (
+        typeof window !== 'undefined' &&
+        createPortal(
         <div className="fixed bottom-6 right-6 glass rounded-xl p-4 shadow-2xl z-40 transition-all-smooth border border-white/20">
           <div className="flex items-center space-x-4">
             <div className="text-sm">
@@ -805,7 +808,9 @@ useEffect(() => {
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
+        )
       )}
 
       {/* Main Content Tabs */}
