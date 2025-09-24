@@ -16,7 +16,6 @@ import {
   Package,
   Wrench,
   Search,
-  Filter,
   Plus,
   Edit,
   Trash2,
@@ -722,10 +721,6 @@ useEffect(() => {
           </p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline" className="hover-lift">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
           <Button className="hover-lift" onClick={handleCreateClick}>
             <Plus className="w-4 h-4 mr-2" />
             Create Item

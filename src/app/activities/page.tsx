@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import {
   Activity,
   Search,
-  Filter,
   Calendar,
   Package,
   User,
@@ -150,6 +149,12 @@ export default function Activities() {
   const [borrowings, setBorrowings] = useState<BorrowingTransaction[]>([]);
   const [consumptions, setConsumptions] = useState<ConsumptionTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Pagination
+  const [borrowingTransactionPage, setBorrowingTransactionPage] = useState(1);
+  const [consumingTransactionPage, setConsumingTransactionPage] = useState(1);
+  const [historyTransactionPage, setHistoryTransactionPage] = useState(1);
+  const pageSize = 10;
   
   // Initialize hooks
   const { showLoading, hideLoading } = useLoading();
@@ -167,6 +172,9 @@ export default function Activities() {
 
         setBorrowings(borrowingsData);
         setConsumptions(consumptionsData);
+        setBorrowingTransactionPage(1);
+        setConsumingTransactionPage(1);
+        setHistoryTransactionPage(1)
       } catch (error) {
         console.error('Error loading activities data:', error);
       } finally {
@@ -359,6 +367,60 @@ export default function Activities() {
     }
   };
 
+  // Pagination helpers
+  // Filter & paginate Borrowing
+  const filteredBorrowings = borrowings.filter(borrowing => {
+    const borrowerName = borrowing.borrowerName || '';
+    const purpose = borrowing.purpose || '';
+    const searchTerm = searchQuery.toLowerCase();
+    return borrowerName.toLowerCase().includes(searchTerm) ||
+          purpose.toLowerCase().includes(searchTerm);
+  });
+  const totalBorrowingTransactionPages = Math.max(1, Math.ceil(filteredBorrowings.length / pageSize));
+  const paginatedBorrowingTransaction = filteredBorrowings.slice(
+    (borrowingTransactionPage - 1) * pageSize,
+    borrowingTransactionPage * pageSize
+  );
+
+  // Filter & paginate Consuming
+  const filteredConsumptions = consumptions.filter(consumption =>
+    consumption.consumerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    consumption.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (consumption.projectName && consumption.projectName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  const totalConsumingTransactionPages = Math.max(1, Math.ceil(filteredConsumptions.length / pageSize));
+  const paginatedConsumingTransaction = filteredConsumptions.slice(
+    (consumingTransactionPage - 1) * pageSize,
+    consumingTransactionPage * pageSize
+  );
+
+  // Filter & paginate History
+  const filteredHistory = [
+    ...borrowings.filter(b => b.status === 'COMPLETED'),
+    ...consumptions
+  ].filter(transaction => {
+    // Search by user, purpose, or item name
+    const isBorrowing = 'borrowingItems' in transaction;
+    const user = isBorrowing ? transaction.borrowerName : transaction.consumerName;
+    const purpose = transaction.purpose || '';
+    const items = isBorrowing
+      ? transaction.borrowingItems.map(item => item.tool.name).join(' ')
+      : transaction.consumptionItems.map(item => item.material.name).join(' ');
+    const searchTerm = searchQuery.toLowerCase();
+    return user.toLowerCase().includes(searchTerm) ||
+          purpose.toLowerCase().includes(searchTerm) ||
+          items.toLowerCase().includes(searchTerm);
+  }).sort((a, b) => {
+    const dateA = 'borrowingItems' in a ? a.createdAt : a.consumptionDate;
+    const dateB = 'borrowingItems' in b ? b.createdAt : b.consumptionDate;
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  });
+  const totalHistoryTransactionPages = Math.max(1, Math.ceil(filteredHistory.length / pageSize));
+  const paginatedHistoryTransaction = filteredHistory.slice(
+    (historyTransactionPage - 1) * pageSize,
+    historyTransactionPage * pageSize
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -385,12 +447,6 @@ export default function Activities() {
             Manage borrowing, consuming, and transaction history
           </p>
         </div>
-        <Button asChild className="hover-lift">
-          <Link href="/reports">
-            <FileText className="w-4 h-4 mr-2" />
-            Generate Report
-          </Link>
-        </Button>
       </div>
 
       {/* Search and Filters */}
@@ -405,10 +461,6 @@ export default function Activities() {
               className="pl-10"
             />
           </div>
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
         </div>
       </div>
 
@@ -449,13 +501,7 @@ export default function Activities() {
                   </tr>
                 </thead>
                 <tbody>
-                  {borrowings.filter(borrowing => {
-                    const borrowerName = borrowing.borrowerName || '';
-                    const purpose = borrowing.purpose || '';
-                    const searchTerm = searchQuery.toLowerCase();
-                    return borrowerName.toLowerCase().includes(searchTerm) ||
-                           purpose.toLowerCase().includes(searchTerm);
-                  }).map((borrowing) => (
+                  {paginatedBorrowingTransaction.map((borrowing) => (
                     <tr
                       key={borrowing.id}
                       className={cn(
@@ -533,7 +579,7 @@ export default function Activities() {
                       </td>
                     </tr>
                   ))}
-                  {borrowings.length === 0 && (
+                  {filteredBorrowings.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         No active borrowings found
@@ -542,6 +588,19 @@ export default function Activities() {
                   )}
                 </tbody>
               </table>
+              <div className="flex items-center justify-between p-4 border-t bg-white/50">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(filteredBorrowings.length === 0) ? 0 : ((borrowingTransactionPage - 1) * pageSize + 1)}-
+                  {Math.min(borrowingTransactionPage * pageSize, filteredBorrowings.length)} of {filteredBorrowings.length}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" disabled={borrowingTransactionPage === 1}
+                    onClick={() => setBorrowingTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <div className="text-sm">Page {borrowingTransactionPage} / {totalBorrowingTransactionPages}</div>
+                  <Button variant="outline" size="sm" disabled={borrowingTransactionPage === totalBorrowingTransactionPages}
+                    onClick={() => setBorrowingTransactionPage(p => Math.min(totalBorrowingTransactionPages, p + 1))}>Next</Button>
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -561,11 +620,7 @@ export default function Activities() {
                   </tr>
                 </thead>
                 <tbody>
-                  {consumptions.filter(consumption =>
-                    consumption.consumerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    consumption.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (consumption.projectName && consumption.projectName.toLowerCase().includes(searchQuery.toLowerCase()))
-                  ).map((consumption) => (
+                  {paginatedConsumingTransaction.map((consumption) => (
                     <tr
                       key={consumption.id}
                       className="border-b border-gray-100 hover:bg-white/50 transition-all-smooth"
@@ -613,7 +668,7 @@ export default function Activities() {
                       </td>
                     </tr>
                   ))}
-                  {consumptions.length === 0 && (
+                  {filteredConsumptions.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-muted-foreground">
                         No recent consumptions found
@@ -622,6 +677,19 @@ export default function Activities() {
                   )}
                 </tbody>
               </table>
+              <div className="flex items-center justify-between p-4 border-t bg-white/50">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(filteredConsumptions.length === 0) ? 0 : ((consumingTransactionPage - 1) * pageSize + 1)}-
+                  {Math.min(consumingTransactionPage * pageSize, filteredConsumptions.length)} of {filteredConsumptions.length}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" disabled={consumingTransactionPage === 1}
+                    onClick={() => setConsumingTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <div className="text-sm">Page {consumingTransactionPage} / {totalConsumingTransactionPages}</div>
+                  <Button variant="outline" size="sm" disabled={consumingTransactionPage === totalConsumingTransactionPages}
+                    onClick={() => setConsumingTransactionPage(p => Math.min(totalConsumingTransactionPages, p + 1))}>Next</Button>
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -655,14 +723,7 @@ export default function Activities() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...borrowings.filter(b => b.status === 'COMPLETED'), ...consumptions]
-                    .sort((a, b) => {
-                      const dateA = 'borrowingItems' in a ? a.createdAt : a.consumptionDate;
-                      const dateB = 'borrowingItems' in b ? b.createdAt : b.consumptionDate;
-                      return new Date(dateB).getTime() - new Date(dateA).getTime();
-                    })
-                    .slice(0, 10)
-                    .map((transaction) => {
+                  {paginatedHistoryTransaction.map((transaction) => {
                       const isBorrowing = 'borrowingItems' in transaction;
                       return (
                         <React.Fragment key={transaction.id}>
@@ -861,7 +922,7 @@ export default function Activities() {
                         </React.Fragment>
                       );
                     })}
-                  {borrowings.length === 0 && consumptions.length === 0 && (
+                  {filteredHistory.length === 0 && (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         No transaction history found
@@ -870,6 +931,19 @@ export default function Activities() {
                   )}
                 </tbody>
               </table>
+              <div className="flex items-center justify-between p-4 border-t bg-white/50">
+                <div className="text-sm text-muted-foreground">
+                  Showing {(filteredHistory.length === 0) ? 0 : ((historyTransactionPage - 1) * pageSize + 1)}-
+                  {Math.min(historyTransactionPage * pageSize, filteredHistory.length)} of {filteredHistory.length}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" disabled={historyTransactionPage === 1}
+                    onClick={() => setHistoryTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <div className="text-sm">Page {historyTransactionPage} / {totalHistoryTransactionPages}</div>
+                  <Button variant="outline" size="sm" disabled={historyTransactionPage === totalHistoryTransactionPages}
+                    onClick={() => setHistoryTransactionPage(p => Math.min(totalHistoryTransactionPages, p + 1))}>Next</Button>
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
