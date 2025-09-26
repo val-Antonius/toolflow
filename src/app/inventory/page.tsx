@@ -1385,6 +1385,8 @@ useEffect(() => {
       </Tabs>
 
       {/* Contextual Sidebar */}
+      {/* Menggunakan Portal Ke Body */}
+      {sidebarOpen && typeof window !== 'undefined' && createPortal(
       <InventorySidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -1409,7 +1411,9 @@ useEffect(() => {
         onSubmit={handleFormSubmit as (formData: unknown) => void}
         toolCategories={toolCategories}
         materialCategories={materialCategories}
-      />
+      />,
+      document.body
+      )}
     </div>
   );
 }
