@@ -32,14 +32,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const { page, limit, skip } = getPaginationParams(searchParams)
     const search = searchParams.get('search') || undefined
-    const status = searchParams.get('status') || undefined
+    const statuses = searchParams.getAll('status') || undefined
     const sortBy = searchParams.get('sortBy') || 'createdAt'
     const sortOrder = (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc'
 
     // Build filters
     const where: Prisma.BorrowingTransactionWhereInput = {
       ...buildSearchFilter(search, ['purpose', 'borrowerName']),
-      ...(status && { status: status as BorrowingTransactionStatus })
+      ...(statuses.length > 0 && { status: { in: statuses as BorrowingTransactionStatus[]} })
     }
 
     // Auto-update overdue status
@@ -81,7 +81,8 @@ export async function GET(request: NextRequest) {
     // Add computed fields
     const borrowingsWithStatus = borrowings.map(borrowing => {
       const now = new Date()
-      const isOverdue = borrowing.status === 'ACTIVE' && borrowing.dueDate < now
+      // const isOverdue = borrowing.status === 'ACTIVE' && borrowing.dueDate < now
+      const isOverdue = borrowing.status === 'OVERDUE';
       const daysOverdue = isOverdue ? Math.floor((now.getTime() - borrowing.dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0
       return {
         ...borrowing,
