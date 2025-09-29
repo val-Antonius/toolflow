@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -39,6 +39,7 @@ interface ReportFilters {
   sortOrder?: 'asc' | 'desc';
   dateRange?: DateRange;
   category?: string | string[];
+  categoryLabels?: string[];
   status?: string | string[];
   borrower?: string;
   consumer?: string;
@@ -95,6 +96,7 @@ interface ComponentReportSummary {
 
 interface AppliedFilters {
   [key: string]: string | number | string[] | { from: string; to: string } | null;
+  categoryLabels?: string[];
 }
 
 // Application state management
@@ -149,6 +151,12 @@ const generateUnifiedReport = async (
       }
     } else if (filters.category && filters.category !== 'all') {
       apiFilters.categoryId = filters.category; // Single category
+    }
+
+    if (filters.category && Array.isArray(filters.category)) {
+      apiFilters.categoryNames = filters.category
+        .map((cat: unknown) => (typeof cat === 'object' && cat && 'label' in cat ? (cat as { label: string }).label : null))
+        .filter(Boolean);
     }
 
     // Handle status filters (FIXED: Multi-select support)
@@ -283,13 +291,24 @@ export default function Reports() {
     }
   };
 
-  const handleFiltersChange = (newFilters: ReportFilters) => {
+  const handleFiltersChange = useCallback((newFilters: ReportFilters) => {
     setReportState(prev => ({
       ...prev,
-      filters: { ...newFilters, sortBy, sortOrder },
+      filters: { ...newFilters, categoryLabels: prev.filters.categoryLabels, categoryNames: prev.filters.categoryNames, sortBy, sortOrder },
       reportData: null // Clear previous data when filters change
     }));
-  };
+  }, [sortBy, sortOrder]);
+
+  const handleFilterLabelsChange = useCallback((labels: Record<string, string[]>) => {
+    setReportState(prev => ({
+      ...prev,
+      filters: {
+        ...prev.filters,
+        categoryLabels: labels.category || [],
+        categoryNames: labels.category || []
+      }
+    }));
+  }, []);
 
   const handleApplyFilters = async () => {
     if (!reportState.selectedReportType || !reportState.reportConfig) return;
@@ -486,6 +505,7 @@ export default function Reports() {
                 reportConfig={reportState.reportConfig}
                 filters={reportState.filters as Filters}
                 onFiltersChange={handleFiltersChange}
+                onFilterLabelsChange={handleFilterLabelsChange}
                 onApplyFilters={handleApplyFilters}
                 isLoading={reportState.isLoading}
               />

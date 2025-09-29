@@ -22,12 +22,22 @@ interface Filters {
   [key: string]: FilterValue;
 }
 
+export interface FilterLabels {
+  [key: string]: string[];
+}
+
 interface DynamicFiltersProps {
   reportConfig: ReportTypeConfig;
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
+  onFilterLabelsChange?: (labels: FilterLabels) => void;
   onApplyFilters: () => void;
   isLoading?: boolean;
+}
+
+interface CategorizedSelectOption {
+  value: string;
+  label: string;
 }
 
 interface MultiSelectState {
@@ -38,22 +48,38 @@ export function DynamicFilters({
   reportConfig, 
   filters, 
   onFiltersChange, 
+  onFilterLabelsChange,
   onApplyFilters,
   isLoading = false 
 }: DynamicFiltersProps) {
   const [multiSelectState, setMultiSelectState] = useState<MultiSelectState>({});
+  const [filterLabels, setFilterLabels] = useState<FilterLabels>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // Initialize multiselect state
   useEffect(() => {
     const initialMultiSelect: MultiSelectState = {};
+    const initialLabels: FilterLabels = {};
     reportConfig.filters.forEach(filter => {
       if (filter.type === 'multiselect') {
-        initialMultiSelect[filter.key] = (filters[filter.key] as string[]) || [];
+        const currentValues = (filters[filter.key] as string[]) || [];
+        initialMultiSelect[filter.key] = currentValues;
+        const labelValues = currentValues
+          .map((value) => {
+            const option = filter.options?.find((opt) => opt.value === value) as CategorizedSelectOption | undefined;
+            return option?.label || null;
+          })
+          .filter((label): label is string => Boolean(label));
+        if (labelValues.length > 0) {
+          initialLabels[filter.key] = labelValues;
+        }
       }
     });
     setMultiSelectState(initialMultiSelect);
+    setFilterLabels(initialLabels);
   }, [reportConfig, filters]);
+
+
 
   // Track changes
   useEffect(() => {
@@ -65,6 +91,22 @@ export function DynamicFilters({
     onFiltersChange(newFilters);
   };
 
+  const handleLabelChange = (key: string, labels: string[]) => {
+    const sanitizedLabels = labels.filter(Boolean);
+    const updatedLabels = { ...filterLabels };
+
+    if (sanitizedLabels.length > 0) {
+      updatedLabels[key] = sanitizedLabels;
+    } else {
+      delete updatedLabels[key];
+    }
+
+    if (onFilterLabelsChange) {
+      onFilterLabelsChange(updatedLabels);
+    }
+    setFilterLabels(updatedLabels);
+  };
+
   const handleMultiSelectToggle = (filterKey: string, value: string) => {
     const currentValues = multiSelectState[filterKey] || [];
     let newValues: string[];
@@ -74,9 +116,18 @@ export function DynamicFilters({
     } else {
       newValues = [...currentValues, value];
     }
-    
+
+    const labelValues = newValues
+      .map((val) => {
+        const matchingFilter = reportConfig.filters.find((cfg) => cfg.key === filterKey);
+        const option = matchingFilter?.options?.find((opt) => opt.value === val);
+        return option?.label || null;
+      })
+      .filter((label): label is string => Boolean(label));
+
     setMultiSelectState(prev => ({ ...prev, [filterKey]: newValues }));
     handleFilterChange(filterKey, newValues);
+    handleLabelChange(filterKey, labelValues);
   };
 
   const resetFilters = () => {
@@ -92,6 +143,10 @@ export function DynamicFilters({
     });
 
     setMultiSelectState({});
+    setFilterLabels({});
+    if (onFilterLabelsChange) {
+      onFilterLabelsChange({});
+    }
     onFiltersChange(defaultFilters);
     setHasChanges(false);
   };

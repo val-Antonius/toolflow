@@ -103,8 +103,11 @@ export function usePDFExport() {
     Object.entries(appliedFilters).forEach(([key, value]) => {
       // Skip internal/system filters
       if (['page', 'limit', 'sortBy', 'sortOrder'].includes(key)) return;
-      
+
       if (value && value !== 'all' && value !== '') {
+        if ((key === 'category' || key === 'categoryId' || key === 'categoryIds') && appliedFilters.categoryNames) {
+          cleanFilters.categoryLabels = appliedFilters.categoryNames;
+        }
         cleanFilters[key] = value;
       }
     });

@@ -524,7 +524,12 @@ async function generateToolsReport(
     prisma.tool.findMany({
       where,
       include: {
-        category: { select: { name: true } }
+        category: { select: { name: true } },
+        units: {
+          select: {
+            condition: true
+          }
+        }
       },
       orderBy: sortBy ? { [sortBy]: sortOrder } : { createdAt: sortOrder },
       skip: (page - 1) * limit,
@@ -533,21 +538,54 @@ async function generateToolsReport(
     prisma.tool.count({ where })
   ])
 
-  return {
-    data: tools.map(tool => ({
+  const formattedTools = tools.map(tool => {
+    const totalQuantity = tool.totalQuantity
+    const availableQuantity = tool.availableQuantity
+    const borrowedQuantity = Math.max(totalQuantity - availableQuantity, 0)
+
+    const hasActiveBorrowing = borrowedQuantity > 0
+    const status = hasActiveBorrowing ? 'In Use' : (availableQuantity > 0 ? 'Available' : 'Unavailable')
+
+    const conditionCounts = tool.units?.reduce<Record<string, number>>((acc, unit) => {
+      if (unit.condition) {
+        acc[unit.condition] = (acc[unit.condition] || 0) + 1
+      }
+      return acc
+    }, {}) ?? {}
+
+    let condition: string = 'GOOD'
+    if (Object.keys(conditionCounts).length > 0) {
+      const priority = ['POOR', 'FAIR', 'GOOD', 'EXCELLENT']
+      for (const conditionKey of priority) {
+        if (conditionCounts[conditionKey]) {
+          condition = conditionKey
+          break
+        }
+      }
+    }
+
+    return {
       id: tool.displayId || tool.id,
       displayId: tool.displayId,
       originalId: tool.id,
       name: tool.name,
       category: tool.category.name,
-      condition: 'GOOD', // Default condition since Tool model doesn't have condition field
-      total: tool.totalQuantity,
-      available: tool.availableQuantity,
-      inUse: tool.totalQuantity - tool.availableQuantity,
+      condition,
+      total: totalQuantity,
+      totalQuantity,
+      available: availableQuantity,
+      availableQuantity,
+      inUse: borrowedQuantity,
+      borrowedQuantity,
       location: tool.location,
-      status: tool.availableQuantity > 0 ? 'Available' : 'In Use',
+      status,
+      hasActiveBorrowing,
       createdAt: tool.createdAt
-    })),
+    }
+  })
+
+  return {
+    data: formattedTools,
     pagination: {
       page,
       limit,

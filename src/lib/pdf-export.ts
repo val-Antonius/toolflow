@@ -126,7 +126,7 @@ export class PDFExporter {
     this.doc.setTextColor(73, 80, 87); // Medium gray
 
     const filterEntries = Object.entries(filters).filter(([key, value]) =>
-      value && value !== 'all' && value !== '' && !['categoryNames'].includes(key)
+      value && value !== 'all' && value !== '' && !['categoryNames', 'categoryLabels', 'categoryIds'].includes(key)
     );
 
     if (filterEntries.length === 0) {
@@ -173,6 +173,9 @@ export class PDFExporter {
 
     // Handle category filters - use categoryNames if available
     if (key === 'categoryId' || key === 'category') {
+      if (allFilters?.categoryLabels && Array.isArray(allFilters.categoryLabels)) {
+        return allFilters.categoryLabels.filter(Boolean).join(', ');
+      }
       if (allFilters?.categoryNames && Array.isArray(allFilters.categoryNames)) {
         return allFilters.categoryNames.join(', ');
       }
@@ -182,8 +185,8 @@ export class PDFExporter {
     if (Array.isArray(value)) {
       return value.map(item => {
         // If it's a category object with name, use the name
-        if (typeof item === 'object' && item.name) {
-          return item.name;
+        if (typeof item === 'object' && item && 'name' in item && item.name) {
+          return String(item.name);
         }
         // If it's just a string, use it directly
         return String(item);
@@ -478,14 +481,16 @@ export class PDFExporter {
   }
 
   private formatCellValue(value: unknown, column: ReportColumn, row: PDFDataRow): string {
-    if (value === null || value === undefined) return '-';
-
-    // Special handling for availability column in tools report
+    // Special handling for availability column in tools report - compute directly from row data
     if (column.key === 'availability') {
-      const available = row.available || row.availableQuantity || 0;
-      const total = row.total || row.totalQuantity || 0;
+      const availableValue = row.available ?? row.availableQuantity ?? 0;
+      const totalValue = row.total ?? row.totalQuantity ?? 0;
+      const available = typeof availableValue === 'number' ? availableValue : Number(availableValue) || 0;
+      const total = typeof totalValue === 'number' ? totalValue : Number(totalValue) || 0;
       return `${available}/${total}`;
     }
+
+    if (value === null || value === undefined) return '-';
 
     // Use custom render function if available
     if (column.render && typeof column.render === 'function') {
