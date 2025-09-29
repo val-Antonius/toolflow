@@ -94,10 +94,9 @@ interface ComponentReportSummary {
   [key: string]: string | number | null;
 }
 
-interface AppliedFilters {
-  [key: string]: string | number | string[] | { from: string; to: string } | null;
-  categoryLabels?: string[];
-}
+import type { AppliedFilters } from '@/components/reports/UnifiedReportPreview';
+
+
 
 // Application state management
 interface ReportState {

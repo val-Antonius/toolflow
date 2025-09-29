@@ -30,8 +30,10 @@ interface ReportSummary {
   [key: string]: string | number | null;
 }
 
-interface AppliedFilters {
-  [key: string]: string | number | string[] | { from: string; to: string } | null;
+export interface AppliedFilters {
+  [key: string]: string | number | string[] | { from: string; to: string } | null | undefined;
+  categoryLabels?: string[];
+  categoryNames?: string[];
 }
 
 interface UnifiedReportPreviewProps {
