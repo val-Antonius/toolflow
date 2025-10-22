@@ -1466,28 +1466,24 @@ export function InventorySidebar({
                 <Wrench className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Borrowing Transaction</h3>
-                <p className="text-xs text-gray-600">Configure tool borrowing details</p>
+                <h3 className="font-semibold text-gray-900">Transaksi Peminjaman</h3>
+                <p className="text-xs text-gray-600">Konfigurasi detail peminjaman alat</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold text-gray-900">{items.length} Tools</div>
-              <div className="text-xs text-gray-600">{totalUnits} units available</div>
+              <div className="text-sm font-semibold text-gray-900">{items.length} Alat</div>
+              <div className="text-xs text-gray-600">{totalUnits} unit tersedia</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="text-center p-3 bg-white/60 rounded-lg border">
               <div className="font-semibold text-gray-900">{items.length}</div>
-              <div className="text-gray-600">Tools</div>
+              <div className="text-gray-600">Alat</div>
             </div>
             <div className="text-center p-3 bg-white/60 rounded-lg border">
               <div className="font-semibold text-gray-900">{totalUnits}</div>
-              <div className="text-gray-600">Available Units</div>
-            </div>
-            <div className="text-center p-3 bg-white/60 rounded-lg border">
-              <div className="font-semibold text-blue-600">{selectedUnitsCount}</div>
-              <div className="text-gray-600">Selected</div>
+              <div className="text-gray-600">Unit Tersedia</div>
             </div>
           </div>
         </div>
@@ -1495,17 +1491,17 @@ export function InventorySidebar({
         {/* Borrower Information */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="p-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Borrower Information</h3>
-            <p className="text-sm text-gray-600 mt-1">Enter borrower details and transaction information</p>
+            <h3 className="font-semibold text-gray-900">Informasi Peminjam</h3>
+            <p className="text-sm text-gray-600 mt-1">Masukkan detail peminjam dan informasi transaksi</p>
           </div>
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-700">Borrower Name</Label>
+                <Label className="text-sm font-medium text-gray-700">Nama Peminjam</Label>
                 <Input
                   value={borrowForm.borrowerName}
                   onChange={(e) => setBorrowForm(prev => ({ ...prev, borrowerName: e.target.value }))}
-                  placeholder="Enter borrower name"
+                  placeholder="Masukkan nama peminjam"
                   className="mt-2"
                   required
                 />
@@ -1514,45 +1510,45 @@ export function InventorySidebar({
               <div>
                 <DateTimePicker
                   id="borrowDueDate"
-                  label="Due Date & Time"
+                  label="Tanggal & Waktu Jatuh Tempo"
                   value={borrowForm.dueDate}
                   onChange={(value) => setBorrowForm(prev => ({ ...prev, dueDate: value }))}
                   min={new Date().toISOString().slice(0, 16)}
                   required
-                  placeholder="Select due date and time for borrowing"
+                  placeholder="Pilih tanggal dan waktu jatuh tempo peminjaman"
                 />
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-700">Purpose</Label>
+              <Label className="text-sm font-medium text-gray-700">Tujuan</Label>
               <Textarea
                 value={borrowForm.purpose}
                 onChange={(e) => setBorrowForm(prev => ({ ...prev, purpose: e.target.value }))}
-                placeholder="Describe the purpose of borrowing these tools..."
+                placeholder="Jelaskan tujuan peminjaman alat-alat ini..."
                 className="mt-2 min-h-[80px]"
                 required
               />
               <div className="flex justify-between items-center mt-2">
                 <div className="text-xs text-gray-500">
-                  {borrowForm.purpose?.length || 0}/500 characters
+                  {borrowForm.purpose?.length || 0}/500 karakter
                 </div>
                 {borrowForm.purpose && borrowForm.purpose.length > 0 && (
-                  <div className="text-xs text-green-600">✓ Purpose provided</div>
+                  <div className="text-xs text-green-600">✓ Tujuan telah diisi</div>
                 )}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-700">Additional Notes</Label>
+              <Label className="text-sm font-medium text-gray-700">Catatan Tambahan</Label>
               <Textarea
                 value={borrowForm.notes || ''}
                 onChange={(e) => setBorrowForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Any additional notes..."
+                placeholder="Catatan tambahan..."
                 className="mt-2 min-h-[60px]"
               />
               <div className="text-xs text-gray-500 mt-2">
-                {borrowForm.notes?.length || 0}/500 characters (optional)
+                {borrowForm.notes?.length || 0}/500 karakter (opsional)
               </div>
             </div>
           </div>
@@ -1563,11 +1559,11 @@ export function InventorySidebar({
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">Tools Selection</h3>
-                <p className="text-sm text-gray-600 mt-1">Select specific units for each tool</p>
+                <h3 className="font-semibold text-gray-900">Pemilihan Alat</h3>
+                <p className="text-sm text-gray-600 mt-1">Pilih unit spesifik untuk setiap alat</p>
               </div>
               <div className="text-xs text-gray-500">
-                {selectedUnitsCount}/{totalUnits} units selected
+                {selectedUnitsCount}/{totalUnits} unit dipilih
               </div>
             </div>
           </div>
@@ -1917,32 +1913,26 @@ export function InventorySidebar({
                 <Package className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">Consumption Transaction</h3>
-                <p className="text-xs text-gray-600">Configure material consumption details</p>
+                <h3 className="font-semibold text-gray-900">Transaksi Konsumsi</h3>
+                <p className="text-xs text-gray-600">Konfigurasi detail konsumsi material</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold text-gray-900">{totalMaterials} Materials</div>
-              <div className="text-xs text-gray-600">Ready for consumption</div>
+              <div className="text-sm font-semibold text-gray-900">{totalMaterials} Material</div>
+              <div className="text-xs text-gray-600">Siap untuk dikonsumsi</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="text-center p-3 bg-white/60 rounded-lg border">
               <div className="font-semibold text-gray-900">{totalMaterials}</div>
-              <div className="text-gray-600">Materials</div>
+              <div className="text-gray-600">Material</div>
             </div>
             <div className="text-center p-3 bg-white/60 rounded-lg border">
               <div className="font-semibold text-gray-900">
                 {items.reduce((sum, item) => sum + (itemQuantities[item.id] || 0.001), 0).toFixed(2)}
               </div>
-              <div className="text-gray-600">Total Quantity</div>
-            </div>
-            <div className="text-center p-3 bg-white/60 rounded-lg border">
-              <div className="font-semibold text-purple-600">
-                {totalValue > 0 ? `$${totalValue.toFixed(2)}` : 'TBD'}
-              </div>
-              <div className="text-gray-600">Est. Value</div>
+              <div className="text-gray-600">Total Kuantitas</div>
             </div>
           </div>
         </div>
@@ -1950,71 +1940,71 @@ export function InventorySidebar({
         {/* Consumer Information */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="p-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Consumer Information</h3>
-            <p className="text-sm text-gray-600 mt-1">Enter consumer details and consumption information</p>
+            <h3 className="font-semibold text-gray-900">Informasi Konsumen</h3>
+            <p className="text-sm text-gray-600 mt-1">Masukkan detail konsumen dan informasi konsumsi</p>
           </div>
           <div className="p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-700">Consumer Name</Label>
+                <Label className="text-sm font-medium text-gray-700">Nama Konsumen</Label>
                 <Input
                   id="consume-consumer-name"
                   name="consume-consumer-name"
                   value={consumeForm.consumerName}
                   onChange={(e) => setConsumeForm(prev => ({ ...prev, consumerName: e.target.value }))}
-                  placeholder="Enter consumer name"
+                  placeholder="Masukkan nama konsumen"
                   className="mt-2"
                   required
                 />
               </div>
 
               <div>
-                <Label className="text-sm font-medium text-gray-700">Project Name</Label>
+                <Label className="text-sm font-medium text-gray-700">Nama Proyek</Label>
                 <Input
                   id="consume-project-name"
                   name="consume-project-name"
                   value={consumeForm.projectName}
                   onChange={(e) => setConsumeForm(prev => ({ ...prev, projectName: e.target.value }))}
-                  placeholder="Optional project name"
+                  placeholder="Nama proyek (opsional)"
                   className="mt-2"
                 />
-                <div className="text-xs text-gray-500 mt-1">Optional - for project tracking</div>
+                <div className="text-xs text-gray-500 mt-1">Opsional - untuk pelacakan proyek</div>
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-700">Purpose</Label>
+              <Label className="text-sm font-medium text-gray-700">Tujuan</Label>
               <Textarea
                 id="consume-purpose"
                 name="consume-purpose"
                 value={consumeForm.purpose}
                 onChange={(e) => setConsumeForm(prev => ({ ...prev, purpose: e.target.value }))}
-                placeholder="Describe the purpose of consuming these materials..."
+                placeholder="Jelaskan tujuan konsumsi material-material ini..."
                 className="mt-2 min-h-[80px]"
                 required
               />
               <div className="flex justify-between items-center mt-2">
                 <div className="text-xs text-gray-500">
-                  {consumeForm.purpose?.length || 0}/500 characters
+                  {consumeForm.purpose?.length || 0}/500 karakter
                 </div>
                 {consumeForm.purpose && consumeForm.purpose.length > 0 && (
-                  <div className="text-xs text-green-600">✓ Purpose provided</div>
+                  <div className="text-xs text-green-600">✓ Tujuan telah diisi</div>
                 )}
               </div>
             </div>
 
             <div>
-              <Label className="text-sm font-medium text-gray-700">Additional Notes</Label>
+              <Label className="text-sm font-medium text-gray-700">Catatan Tambahan</Label>
               <Textarea
                 id="consume-notes"
                 name="consume-notes"
                 value={consumeForm.notes}
                 onChange={(e) => setConsumeForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Any additional notes..."
+                placeholder="Catatan tambahan..."
                 className="mt-2 min-h-[60px]"
               />
               <div className="text-xs text-gray-500 mt-2">
-                {consumeForm.notes?.length || 0}/500 characters (optional)
+                {consumeForm.notes?.length || 0}/500 karakter (opsional)
               </div>
             </div>
           </div>
@@ -2025,11 +2015,11 @@ export function InventorySidebar({
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-gray-900">Materials Consumption</h3>
-                <p className="text-sm text-gray-600 mt-1">Set consumption quantities for each material</p>
+                <h3 className="font-semibold text-gray-900">Konsumsi Material</h3>
+                <p className="text-sm text-gray-600 mt-1">Atur kuantitas konsumsi untuk setiap material</p>
               </div>
               <div className="text-xs text-gray-500">
-                {items.filter(item => itemQuantities[item.id] > 0).length}/{items.length} configured
+                {items.filter(item => itemQuantities[item.id] > 0).length}/{items.length} dikonfigurasi
               </div>
             </div>
           </div>
@@ -2207,24 +2197,24 @@ export function InventorySidebar({
           {/* Mixed Process Header */}
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-900">Mixed Transaction Processing</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Pemrosesan Transaksi Campuran</h3>
               <Badge className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-                {selectedTools.length + selectedMaterials.length} items selected
+                {selectedTools.length + selectedMaterials.length} item dipilih
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center space-x-2 text-blue-700">
                 <Wrench className="w-4 h-4" />
-                <span>{selectedTools.length} tools to borrow</span>
+                <span>{selectedTools.length} alat untuk dipinjam</span>
               </div>
               <div className="flex items-center space-x-2 text-purple-700">
                 <Package className="w-4 h-4" />
-                <span>{selectedMaterials.length} materials to consume</span>
+                <span>{selectedMaterials.length} material untuk dikonsumsi</span>
               </div>
             </div>
-            <div className="mt-3 text-xs text-gray-600 bg-white rounded p-2 border">
+            {/* <div className="mt-3 text-xs text-gray-600 bg-white rounded p-2 border">
               💡 <strong>Smart Workflow:</strong> Complete both transactions in one go. The system will process borrowing and consumption simultaneously.
-            </div>
+            </div> */}
           </div>
 
           <Tabs value={processType} onValueChange={(value) => setProcessType(value as 'borrow' | 'consume')} className="space-y-4">
@@ -2232,26 +2222,26 @@ export function InventorySidebar({
               <TabsTrigger value="borrow" disabled={!hasTools} className="flex items-center space-x-2 h-10">
                 <Wrench className="w-4 h-4" />
                 <div className="text-left">
-                  <div className="font-medium">Borrow Tools</div>
-                  <div className="text-xs opacity-75">{selectedTools.length} items</div>
+                  <div className="font-medium">Pinjam Alat</div>
+                  <div className="text-xs opacity-75">{selectedTools.length} item</div>
                 </div>
               </TabsTrigger>
               <TabsTrigger value="consume" disabled={!hasMaterials} className="flex items-center space-x-2 h-10">
                 <Package className="w-4 h-4" />
                 <div className="text-left">
-                  <div className="font-medium">Consume Materials</div>
-                  <div className="text-xs opacity-75">{selectedMaterials.length} items</div>
+                  <div className="font-medium">Konsumsi Material</div>
+                  <div className="text-xs opacity-75">{selectedMaterials.length} item</div>
                 </div>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="borrow" className="space-y-4">
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-4">
+              {/* <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-4">
                 <div className="flex items-center space-x-2 text-blue-800 text-sm">
                   <Info className="w-4 h-4" />
                   <span>Configure borrowing details for {selectedTools.length} tool{selectedTools.length > 1 ? 's' : ''}. Materials will be processed separately.</span>
                 </div>
-              </div>
+              </div> */}
               {renderBorrowForm(selectedTools)}
             </TabsContent>
 
@@ -2268,30 +2258,30 @@ export function InventorySidebar({
 
           {/* Mixed Process Summary */}
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 className="font-medium text-gray-900 mb-3">Transaction Summary</h4>
+            <h4 className="font-medium text-gray-900 mb-3">Ringkasan Transaksi</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
                 <div className="flex items-center space-x-2 text-blue-700 font-medium">
                   <Wrench className="w-4 h-4" />
-                  <span>Borrowing Summary</span>
+                  <span>Ringkasan Peminjaman</span>
                 </div>
                 <div className="pl-6 space-y-1 text-gray-600">
-                  <div>Borrower: {borrowForm.borrowerName || 'Not specified'}</div>
-                  <div>Due Date: {borrowForm.dueDate ? new Date(borrowForm.dueDate).toLocaleDateString() : 'Not specified'}</div>
-                  <div>Tools: {selectedTools.length} items</div>
-                  <div>Units: {Object.values(selectedUnits).flat().length} total units</div>
+                  <div>Peminjam: {borrowForm.borrowerName || 'Tidak ditentukan'}</div>
+                  <div>Jatuh Tempo: {borrowForm.dueDate ? new Date(borrowForm.dueDate).toLocaleDateString() : 'Tidak ditentukan'}</div>
+                  <div>Alat: {selectedTools.length} item</div>
+                  <div>Unit: {Object.values(selectedUnits).flat().length} total unit</div>
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2 text-purple-700 font-medium">
                   <Package className="w-4 h-4" />
-                  <span>Consumption Summary</span>
+                  <span>Ringkasan Konsumsi</span>
                 </div>
                 <div className="pl-6 space-y-1 text-gray-600">
-                  <div>Consumer: {consumeForm.consumerName || 'Not specified'}</div>
-                  <div>Project: {consumeForm.projectName || 'Not specified'}</div>
-                  <div>Materials: {selectedMaterials.length} items</div>
-                  <div>Total Value: Calculated on submit</div>
+                  <div>Konsumen: {consumeForm.consumerName || 'Tidak ditentukan'}</div>
+                  <div>Proyek: {consumeForm.projectName || 'Tidak ditentukan'}</div>
+                  <div>Material: {selectedMaterials.length} item</div>
+                  <div>Total Nilai: Dihitung saat submit</div>
                 </div>
               </div>
             </div>
@@ -2310,15 +2300,15 @@ export function InventorySidebar({
       <div className="p-4 bg-red-50 rounded-lg border border-red-200">
         <div className="flex items-center space-x-2 mb-2">
           <AlertTriangle className="w-5 h-5 text-red-600" />
-          <h4 className="font-medium text-red-900">Delete Confirmation</h4>
+          <h4 className="font-medium text-red-900">Konfirmasi Hapus</h4>
         </div>
         <p className="text-sm text-red-700">
-          You are about to delete {selectedItems.length} item(s). This action cannot be undone.
+          Anda akan menghapus {selectedItems.length} item. Tindakan ini tidak dapat dibatalkan.
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label>Items to Delete:</Label>
+        <Label>Item yang akan Dihapus:</Label>
         {selectedItems.map((item) => (
           <div key={item.id} className="p-3 border rounded-lg bg-gray-50">
             <div className="flex items-center justify-between">
@@ -2400,17 +2390,17 @@ export function InventorySidebar({
                       )}
                       <span className="font-medium text-gray-700">
                         {hasMixed
-                          ? 'Mixed Transaction Progress'
-                          : processType === 'borrow' ? 'Borrowing Progress' : 'Consumption Progress'
+                          ? 'Progress Transaksi Campuran'
+                          : processType === 'borrow' ? 'Progress Peminjaman' : 'Progress Konsumsi'
                         }
                       </span>
                     </div>
                     <span className="font-semibold text-gray-900">
                       {hasMixed
-                        ? `${selectedTools.length} tools, ${selectedMaterials.length} materials`
+                        ? `${selectedTools.length} alat, ${selectedMaterials.length} material`
                         : processType === 'borrow'
-                        ? `${Object.values(selectedUnits).flat().length} units selected`
-                        : `${Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length}/${selectedItems.length} configured`
+                        ? `${Object.values(selectedUnits).flat().length} unit dipilih`
+                        : `${Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length}/${selectedItems.length} dikonfigurasi`
                       }
                     </span>
                   </div>
@@ -2462,7 +2452,7 @@ export function InventorySidebar({
                             <CheckCircle className="w-3 h-3" /> :
                             <div className="w-3 h-3 border border-gray-300 rounded-full" />
                           }
-                          <span>Consume Complete</span>
+                          <span>Konsumsi Selesai</span>
                         </span>
                       </>
                     ) : processType === 'borrow' ? (
@@ -2475,7 +2465,7 @@ export function InventorySidebar({
                             <CheckCircle className="w-3 h-3" /> :
                             <div className="w-3 h-3 border border-gray-300 rounded-full" />
                           }
-                          <span>Form Complete</span>
+                          <span>Form Lengkap</span>
                         </span>
                         <span className={cn(
                           "flex items-center space-x-1",
@@ -2485,7 +2475,7 @@ export function InventorySidebar({
                             <CheckCircle className="w-3 h-3" /> :
                             <div className="w-3 h-3 border border-gray-300 rounded-full" />
                           }
-                          <span>Units Selected</span>
+                          <span>Unit Dipilih</span>
                         </span>
                       </>
                     ) : (
@@ -2498,7 +2488,7 @@ export function InventorySidebar({
                             <CheckCircle className="w-3 h-3" /> :
                             <div className="w-3 h-3 border border-gray-300 rounded-full" />
                           }
-                          <span>Form Complete</span>
+                          <span>Form Lengkap</span>
                         </span>
                         <span className={cn(
                           "flex items-center space-x-1",
@@ -2508,7 +2498,7 @@ export function InventorySidebar({
                             <CheckCircle className="w-3 h-3" /> :
                             <div className="w-3 h-3 border border-gray-300 rounded-full" />
                           }
-                          <span>Quantities Set</span>
+                          <span>Kuantitas Diatur</span>
                         </span>
                       </>
                     )}
