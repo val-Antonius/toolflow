@@ -490,16 +490,27 @@ export class PDFExporter {
       return `${available}/${total}`;
     }
 
+    // Prefer displayId for ID columns (mirror UI behavior)
+    if (column.key === 'id') {
+      const displayId = (row as Record<string, unknown>).displayId;
+      if (typeof displayId === 'string' && displayId.trim().length > 0) {
+        return displayId;
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
+      return String(value ?? '-');
+    }
+
     if (value === null || value === undefined) return '-';
 
-    // Use custom render function if available
+    // If a custom render exists and returns a primitive, use it; otherwise fall back to type-based formatting.
     if (column.render && typeof column.render === 'function') {
-      // For PDF, we need to extract text content from React elements
       const rendered = column.render(value, row);
-      if (typeof rendered === 'string') return rendered;
-      if (typeof rendered === 'number') return rendered.toString();
-      // For React elements, extract text content (simplified)
-      return String(value);
+      if (typeof rendered === 'string' || typeof rendered === 'number') {
+        return String(rendered);
+      }
+      // If it's a React element or anything non-primitive, ignore and continue to type-based formatting
     }
 
     switch (column.type) {
@@ -513,10 +524,15 @@ export class PDFExporter {
         return Number(value).toLocaleString('id-ID');
       
       case 'date':
-        if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
-          return new Date(value).toLocaleDateString('id-ID');
+        try {
+          if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+            const dateObj = value instanceof Date ? value : new Date(value);
+            return dateObj.toLocaleDateString('id-ID');
+          }
+          return String(value);
+        } catch {
+          return String(value);
         }
-        return String(value);
       
       case 'status':
       case 'badge':
@@ -527,10 +543,16 @@ export class PDFExporter {
         return value.map(item => {
           if (typeof item === 'string') return item;
           if (typeof item === 'object' && item !== null) {
-            // Extract meaningful text from item objects
-            return item.name || item.toolName || item.materialName ||
-                   `${item.toolName || item.materialName || 'Item'} (${item.quantity || 1}x)` ||
-                   String(item);
+            const anyItem = item as Record<string, unknown>;
+            const baseName = (anyItem.name || anyItem.toolName || anyItem.materialName);
+            const quantity = anyItem.quantity;
+            if (baseName) {
+              if (typeof quantity === 'number') {
+                return `${String(baseName)} (${quantity}x)`;
+              }
+              return String(baseName);
+            }
+            return 'Item';
           }
           return String(item);
         }).join(', ');

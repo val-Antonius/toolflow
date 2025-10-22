@@ -111,8 +111,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       if (missingConditions) {
         toast({
           type: 'error',
-          title: 'Missing Conditions',
-          description: 'Please set conditions for all items before proceeding'
+          title: 'Kondisi Belum Lengkap',
+          description: 'Silakan tentukan kondisi untuk semua barang sebelum melanjutkan'
         });
         return;
       }
@@ -151,8 +151,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       if (!formData.newDueDate || !formData.reason) {
         toast({
           type: 'error',
-          title: 'Missing Information',
-          description: 'Please fill in all required fields'
+          title: 'Informasi Belum Lengkap',
+          description: 'Silakan lengkapi semua kolom yang wajib diisi'
         });
         return;
       }
@@ -162,8 +162,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       if (isNaN(newDueDate.getTime())) {
         toast({
           type: 'error',
-          title: 'Invalid Date',
-          description: 'Please enter a valid date'
+          title: 'Tanggal Tidak Valid',
+          description: 'Silakan masukkan tanggal yang valid'
         });
         return;
       }
@@ -171,8 +171,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       if (newDueDate <= new Date()) {
         toast({
           type: 'error',
-          title: 'Invalid Date',
-          description: 'New due date must be in the future'
+          title: 'Tanggal Tidak Valid',
+          description: 'Tanggal jatuh tempo baru harus di masa depan'
         });
         return;
       }
@@ -193,11 +193,11 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
 
   const getTitle = () => {
     switch (type) {
-      case 'return': return 'Return Items';
-      case 'extend': return 'Extend Due Date';
-      case 'borrow': return 'Borrow Items';
-      case 'consume': return 'Consume Materials';
-      default: return 'Form';
+      case 'return': return 'Pengembalian Barang';
+      case 'extend': return 'Perpanjang Tanggal Jatuh Tempo';
+      case 'borrow': return 'Peminjaman Barang';
+      case 'consume': return 'Penggunaan Material';
+      default: return 'Formulir';
     }
   };
 
@@ -237,8 +237,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         <User className="w-4 h-4 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">Return Information</h3>
-                        <p className="text-xs text-gray-600">Borrower details and return overview</p>
+                        <h3 className="font-semibold text-gray-900">Informasi Pengembalian</h3>
+                        <p className="text-xs text-gray-600">Detail peminjam dan ringkasan pengembalian</p>
                       </div>
                     </div>
                     <div className={cn(
@@ -247,7 +247,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         ? "bg-red-100 text-red-700 border border-red-200"
                         : "bg-green-100 text-green-700 border border-green-200"
                     )}>
-                      {new Date(borrowing.dueDate) < new Date() ? 'Overdue' : 'On Time'}
+                      {new Date(borrowing.dueDate) < new Date() ? 'Terlambat' : 'Tepat Waktu'}
                     </div>
                   </div>
 
@@ -256,15 +256,15 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Borrower Details</span>
+                        <span className="text-sm font-medium text-gray-700">Detail Peminjam</span>
                       </div>
                       <div className="space-y-2 text-sm pl-4">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Name:</span>
+                          <span className="text-gray-600">Nama:</span>
                           <span className="font-medium text-gray-900">{borrowing.borrower}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Due Date:</span>
+                          <span className="text-gray-600">Tanggal Jatuh Tempo:</span>
                           <span className="font-medium text-gray-900">
                             {new Date(borrowing.dueDate).toLocaleDateString('en-US', {
                               month: 'short',
@@ -274,7 +274,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           </span>
                         </div>
                         <div className="pt-1">
-                          <span className="text-gray-600 block mb-1">Purpose:</span>
+                          <span className="text-gray-600 block mb-1">Tujuan:</span>
                           <p className="text-gray-900 text-xs bg-white/60 p-2 rounded border">
                             {borrowing.purpose}
                           </p>
@@ -286,21 +286,21 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Return Statistics</span>
+                        <span className="text-sm font-medium text-gray-700">Statistik Pengembalian</span>
                       </div>
                       <div className="space-y-2 text-sm pl-4">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Total Items:</span>
+                          <span className="text-gray-600">Total Barang:</span>
                           <span className="font-semibold text-gray-900">{borrowing.items.length}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Total Units:</span>
+                          <span className="text-gray-600">Total Unit:</span>
                           <span className="font-semibold text-gray-900">
                             {borrowing.items.reduce((sum: number, item: BorrowedItem) => sum + item.units.length, 0)}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Borrowed Date:</span>
+                          <span className="text-gray-600">Tanggal Pinjam:</span>
                           <span className="font-medium text-gray-900">
                             {new Date(borrowing.dueDate).toLocaleDateString('en-US', {
                               month: 'short',
@@ -309,7 +309,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Days Overdue:</span>
+                          <span className="text-gray-600">Hari Terlambat:</span>
                           <span className={cn(
                             "font-semibold",
                             new Date(borrowing.dueDate) < new Date() ? "text-red-600" : "text-green-600"
@@ -332,14 +332,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   <div className="p-4 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold text-gray-900">Bulk Return Configuration</h3>
+                        <h3 className="font-semibold text-gray-900">Konfigurasi Pengembalian Massal</h3>
                         <p className="text-sm text-gray-600 mt-1">
-                          Configure return conditions for all items efficiently
+                          Atur kondisi pengembalian untuk semua barang dengan efisien
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="text-xs text-gray-500">
-                          {Object.keys(itemConditions).length}/{borrowing.items.length} configured
+                          {Object.keys(itemConditions).length}/{borrowing.items.length} dikonfigurasi
                         </div>
                         <div className="w-16 bg-gray-200 rounded-full h-2">
                           <div
@@ -356,7 +356,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   <div className="p-4">
                     {/* Quick Actions */}
                     <div className="mb-4">
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Actions</Label>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Aksi Cepat</Label>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
                           type="button"
@@ -371,7 +371,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           }}
                           className="text-xs hover:bg-green-50 hover:border-green-200 hover:text-green-700"
                         >
-                          ✅ All Good Condition
+                          ✅ Semua Kondisi Baik
                         </Button>
                         <Button
                           type="button"
@@ -386,7 +386,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           }}
                           className="text-xs hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700"
                         >
-                          🔄 Same as Borrowed
+                          🔄 Sama Seperti Saat Dipinjam
                         </Button>
                         <Button
                           type="button"
@@ -401,7 +401,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           }}
                           className="text-xs hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700"
                         >
-                          ⭐ All Excellent
+                          ⭐ Semua Sangat Baik
                         </Button>
                         <Button
                           type="button"
@@ -412,14 +412,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           }}
                           className="text-xs hover:bg-red-50 hover:border-red-200 hover:text-red-700"
                         >
-                          🗑️ Clear All
+                          🗑️ Hapus Semua
                         </Button>
                       </div>
                     </div>
 
                     {/* Individual Item Configuration */}
                     <div className="space-y-3">
-                      <Label className="text-sm font-medium text-gray-700">Individual Item Configuration</Label>
+                      <Label className="text-sm font-medium text-gray-700">Konfigurasi Barang Individual</Label>
                       {borrowing.items.map((item: BorrowedItem) => (
                         <ConditionPicker
                           key={item.id}
@@ -440,20 +440,20 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                 {/* Return Notes */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Return Notes</h3>
-                    <p className="text-sm text-gray-600 mt-1">Add any additional comments about the return (optional)</p>
+                    <h3 className="font-semibold text-gray-900">Catatan Pengembalian</h3>
+                    <p className="text-sm text-gray-600 mt-1">Tambahkan komentar tambahan tentang pengembalian (opsional)</p>
                   </div>
                   <div className="p-4 space-y-4">
                     {/* Quick Notes Templates */}
                     <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Templates</Label>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Template Cepat</Label>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          'All items returned in good condition',
-                          'Some wear and tear observed',
-                          'Items cleaned before return',
-                          'No issues during usage',
-                          'Minor damage noted'
+                          'Semua barang dikembalikan dalam kondisi baik',
+                          'Terlihat beberapa keausan',
+                          'Barang dibersihkan sebelum dikembalikan',
+                          'Tidak ada masalah selama penggunaan',
+                          'Kerusakan minor dicatat'
                         ].map((template) => (
                           <Button
                             key={template}
@@ -475,20 +475,20 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     </div>
 
                     <div>
-                      <Label htmlFor="notes" className="text-sm font-medium text-gray-700">Additional Notes</Label>
+                      <Label htmlFor="notes" className="text-sm font-medium text-gray-700">Catatan Tambahan</Label>
                       <Textarea
                         id="notes"
-                        placeholder="Any additional notes about the returned items..."
+                        placeholder="Catatan tambahan tentang barang yang dikembalikan..."
                         value={formData.notes || ''}
                         onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                         className="mt-2 min-h-[80px]"
                       />
                       <div className="flex justify-between items-center mt-2">
                         <div className="text-xs text-gray-500">
-                          {formData.notes?.length || 0}/500 characters
+                          {formData.notes?.length || 0}/500 karakter
                         </div>
                         {formData.notes && formData.notes.length > 0 && (
-                          <div className="text-xs text-green-600">✓ Notes added</div>
+                          <div className="text-xs text-green-600">✓ Catatan ditambahkan</div>
                         )}
                       </div>
                     </div>
@@ -508,8 +508,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         <Calendar className="w-4 h-4 text-white" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">Extension Information</h3>
-                        <p className="text-xs text-gray-600">Borrower details and current due date</p>
+                        <h3 className="font-semibold text-gray-900">Informasi Perpanjangan</h3>
+                        <p className="text-xs text-gray-600">Detail peminjam dan tanggal jatuh tempo saat ini</p>
                       </div>
                     </div>
                     <div className={cn(
@@ -519,8 +519,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         : "bg-green-100 text-green-700 border border-green-200"
                     )}>
                       {new Date(borrowing.dueDate) < new Date()
-                        ? `Overdue ${Math.ceil((new Date().getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))}d`
-                        : `Due in ${Math.ceil((new Date(borrowing.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}d`
+                        ? `Terlambat ${Math.ceil((new Date().getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))}h`
+                        : `Jatuh tempo dalam ${Math.ceil((new Date(borrowing.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}h`
                       }
                     </div>
                   </div>
@@ -530,19 +530,19 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Borrower Details</span>
+                        <span className="text-sm font-medium text-gray-700">Detail Peminjam</span>
                       </div>
                       <div className="space-y-2 text-sm pl-4">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Name:</span>
+                          <span className="text-gray-600">Nama:</span>
                           <span className="font-medium text-gray-900">{borrowing.borrower}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Items:</span>
-                          <span className="font-medium text-gray-900">{borrowing.items.length} items</span>
+                          <span className="text-gray-600">Barang:</span>
+                          <span className="font-medium text-gray-900">{borrowing.items.length} barang</span>
                         </div>
                         <div className="pt-1">
-                          <span className="text-gray-600 block mb-1">Purpose:</span>
+                          <span className="text-gray-600 block mb-1">Tujuan:</span>
                           <p className="text-gray-900 text-xs bg-white/60 p-2 rounded border">
                             {borrowing.purpose}
                           </p>
@@ -554,7 +554,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-700">Current Due Date</span>
+                        <span className="text-sm font-medium text-gray-700">Tanggal Jatuh Tempo Saat Ini</span>
                       </div>
                       <div className="space-y-2 text-sm pl-4">
                         <div className="bg-white/60 p-3 rounded border">
@@ -580,8 +580,8 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                             : "bg-green-50 text-green-700 border-green-200"
                         )}>
                           {new Date(borrowing.dueDate) < new Date()
-                            ? `⚠️ Overdue by ${Math.ceil((new Date().getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))} days`
-                            : `✅ Due in ${Math.ceil((new Date(borrowing.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days`
+                            ? `⚠️ Terlambat ${Math.ceil((new Date().getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))} hari`
+                            : `✅ Jatuh tempo dalam ${Math.ceil((new Date(borrowing.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} hari`
                           }
                         </div>
                       </div>
@@ -592,16 +592,16 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                 {/* Quick Extension Options */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Quick Extension Options</h3>
-                    <p className="text-sm text-gray-600 mt-1">Choose a preset extension period or set custom date</p>
+                    <h3 className="font-semibold text-gray-900">Opsi Perpanjangan Cepat</h3>
+                    <p className="text-sm text-gray-600 mt-1">Pilih periode perpanjangan preset atau atur tanggal khusus</p>
                   </div>
                   <div className="p-4">
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { days: 7, label: '+1 Week', color: 'blue' },
-                        { days: 14, label: '+2 Weeks', color: 'green' },
-                        { days: 30, label: '+1 Month', color: 'purple' },
-                        { days: 60, label: '+2 Months', color: 'orange' }
+                        { days: 7, label: '+1 Minggu', color: 'blue' },
+                        { days: 14, label: '+2 Minggu', color: 'green' },
+                        { days: 30, label: '+1 Bulan', color: 'purple' },
+                        { days: 60, label: '+2 Bulan', color: 'orange' }
                       ].map((option) => {
                         const newDate = new Date();
                         newDate.setDate(newDate.getDate() + option.days);
@@ -638,14 +638,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                 {/* Custom Date Selection */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Custom Due Date</h3>
-                    <p className="text-sm text-gray-600 mt-1">Set a specific date and time for the extension</p>
+                    <h3 className="font-semibold text-gray-900">Tanggal Jatuh Tempo Khusus</h3>
+                    <p className="text-sm text-gray-600 mt-1">Atur tanggal dan waktu tertentu untuk perpanjangan</p>
                   </div>
                   <div className="p-4 space-y-4">
                     <div>
                       <DateTimePicker
                         id="newDueDate"
-                        label="New Due Date & Time"
+                        label="Tanggal & Waktu Jatuh Tempo Baru"
                         value={formData.newDueDate || ''}
                         onChange={(value) => setFormData((prev) => ({
                           ...prev,
@@ -653,7 +653,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                         }))}
                         min={new Date().toISOString().slice(0, 16)}
                         required
-                        placeholder="Select new due date and time"
+                        placeholder="Pilih tanggal dan waktu jatuh tempo baru"
                       />
                     </div>
 
@@ -663,7 +663,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                           <Calendar className="w-4 h-4 text-blue-600 mt-0.5" />
                           <div className="text-sm">
                             <div className="font-medium text-blue-900 mb-1">
-                              📅 New due date: {new Date(formData.newDueDate).toLocaleDateString('en-US', {
+                              📅 Tanggal jatuh tempo baru: {new Date(formData.newDueDate).toLocaleDateString('en-US', {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
@@ -673,7 +673,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                               })}
                             </div>
                             <div className="text-blue-700">
-                              ⏱️ Extension period: {Math.ceil((new Date(formData.newDueDate).getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))} days
+                              ⏱️ Periode perpanjangan: {Math.ceil((new Date(formData.newDueDate).getTime() - new Date(borrowing.dueDate).getTime()) / (1000 * 60 * 60 * 24))} hari
                             </div>
                           </div>
                         </div>
@@ -685,20 +685,20 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                 {/* Reason with Templates */}
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
                   <div className="p-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Reason for Extension</h3>
-                    <p className="text-sm text-gray-600 mt-1">Provide a clear justification for the extension request</p>
+                    <h3 className="font-semibold text-gray-900">Alasan Perpanjangan</h3>
+                    <p className="text-sm text-gray-600 mt-1">Berikan justifikasi yang jelas untuk permintaan perpanjangan</p>
                   </div>
                   <div className="p-4 space-y-4">
                     {/* Quick Reason Templates */}
                     <div>
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Quick Templates</Label>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Template Cepat</Label>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          'Project delayed',
-                          'Equipment still in use',
-                          'Waiting for replacement',
-                          'Extended research period',
-                          'Technical difficulties'
+                          'Proyek tertunda',
+                          'Peralatan masih digunakan',
+                          'Menunggu penggantian',
+                          'Periode penelitian diperpanjang',
+                          'Kesulitan teknis'
                         ].map((template) => (
                           <Button
                             key={template}
@@ -720,10 +720,10 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     </div>
 
                     <div>
-                      <Label htmlFor="reason" className="text-sm font-medium text-gray-700">Detailed Reason</Label>
+                      <Label htmlFor="reason" className="text-sm font-medium text-gray-700">Alasan Detail</Label>
                       <Textarea
                         id="reason"
-                        placeholder="Please provide a detailed reason for extending the due date..."
+                        placeholder="Silakan berikan alasan detail untuk memperpanjang tanggal jatuh tempo..."
                         value={formData.reason || ''}
                         onChange={(e) => setFormData((prev) => ({ ...prev, reason: e.target.value }))}
                         className="mt-2 min-h-[80px]"
@@ -731,10 +731,10 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                       />
                       <div className="flex justify-between items-center mt-2">
                         <div className="text-xs text-gray-500">
-                          {formData.reason?.length || 0}/500 characters
+                          {formData.reason?.length || 0}/500 karakter
                         </div>
                         {formData.reason && formData.reason.length > 0 && (
-                          <div className="text-xs text-green-600">✓ Reason provided</div>
+                          <div className="text-xs text-green-600">✓ Alasan diberikan</div>
                         )}
                       </div>
                     </div>
@@ -751,10 +751,10 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   <div className="flex items-center justify-between text-sm mb-3">
                     <div className="flex items-center space-x-2">
                       <Package className="w-4 h-4 text-gray-600" />
-                      <span className="font-medium text-gray-700">Return Progress</span>
+                      <span className="font-medium text-gray-700">Progress Pengembalian</span>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      {Object.keys(itemConditions).length} / {borrowing.items.length} items configured
+                      {Object.keys(itemConditions).length} / {borrowing.items.length} barang dikonfigurasi
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
@@ -769,7 +769,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                     <div className="flex items-center space-x-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-amber-600" />
                       <p className="text-xs text-amber-700">
-                        Please configure return conditions for all items before proceeding
+                        Silakan konfigurasi kondisi pengembalian untuk semua barang sebelum melanjutkan
                       </p>
                     </div>
                   )}
@@ -782,10 +782,10 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   <div className="flex items-center justify-between text-sm mb-3">
                     <div className="flex items-center space-x-2">
                       <Calendar className="w-4 h-4 text-gray-600" />
-                      <span className="font-medium text-gray-700">Extension Form</span>
+                      <span className="font-medium text-gray-700">Formulir Perpanjangan</span>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      {(formData.newDueDate && formData.reason) ? 'Complete' : 'Incomplete'}
+                      {(formData.newDueDate && formData.reason) ? 'Lengkap' : 'Belum Lengkap'}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
@@ -802,14 +802,14 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                       formData.newDueDate ? "text-green-600" : "text-gray-500"
                     )}>
                       {formData.newDueDate ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 border border-gray-300 rounded-full" />}
-                      <span>Due Date Set</span>
+                      <span>Tanggal Jatuh Tempo Diatur</span>
                     </span>
                     <span className={cn(
                       "flex items-center space-x-1",
                       formData.reason ? "text-green-600" : "text-gray-500"
                     )}>
                       {formData.reason ? <CheckCircle className="w-3 h-3" /> : <div className="w-3 h-3 border border-gray-300 rounded-full" />}
-                      <span>Reason Provided</span>
+                      <span>Alasan Diberikan</span>
                     </span>
                   </div>
                 </div>
@@ -822,7 +822,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   onClick={onClose}
                   className="flex-1 hover:bg-white hover:shadow-sm transition-all duration-200"
                 >
-                  Cancel
+                  Batal
                 </Button>
                 <Button
                   type="submit"
@@ -841,12 +841,12 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
                   {type === 'return' ? (
                     <>
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Process Return
+                      Proses Pengembalian
                     </>
                   ) : (
                     <>
                       <Calendar className="w-4 h-4 mr-2" />
-                      Extend Due Date
+                      Perpanjang Tanggal Jatuh Tempo
                     </>
                   )}
                 </Button>

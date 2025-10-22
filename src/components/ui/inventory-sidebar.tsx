@@ -90,10 +90,10 @@ interface NewItem {
 // Kategori sekarang berasal dari prop, bukan hardcoded
 
 const conditions = [
-  { value: 'EXCELLENT', label: 'Excellent' },
-  { value: 'GOOD', label: 'Good' },
-  { value: 'FAIR', label: 'Fair' },
-  { value: 'POOR', label: 'Poor' }
+  { value: 'EXCELLENT', label: 'Sangat Baik' },
+  { value: 'GOOD', label: 'Baik' },
+  { value: 'FAIR', label: 'Cukup' },
+  { value: 'POOR', label: 'Buruk' }
 ];
 
 interface Category {
@@ -150,12 +150,12 @@ interface SidebarFormProps {
 // Kategori sekarang berasal dari prop, bukan hardcoded
 
 const units = [
-  { value: 'kg', label: 'Kilograms (kg)' },
-  { value: 'meter', label: 'Meters (m)' },
-  { value: 'liters', label: 'Liters (L)' },
-  { value: 'pieces', label: 'Pieces (pcs)' },
-  { value: 'boxes', label: 'Boxes' },
-  { value: 'roll', labe: 'Rolls'}
+  { value: 'kg', label: 'Kilogram (kg)' },
+  { value: 'meter', label: 'Meter (m)' },
+  { value: 'liters', label: 'Liter (L)' },
+  { value: 'pieces', label: 'Buah (pcs)' },
+  { value: 'boxes', label: 'Kotak' },
+  { value: 'roll', labe: 'Gulung'}
 ];
 
 
@@ -372,7 +372,7 @@ export function InventorySidebar({
         });
 
         if (invalidItems.length > 0) {
-          throw new Error('Please fill all required fields and ensure condition distribution matches quantity');
+          throw new Error('Silakan lengkapi semua kolom yang wajib diisi dan pastikan distribusi kondisi sesuai dengan jumlah');
         }
 
         onSubmit({ items: newItems });
@@ -416,11 +416,11 @@ export function InventorySidebar({
                               Object.keys(itemQuantities).filter(id => itemQuantities[id] > 0).length > 0;
 
         if (!borrowComplete) {
-          throw new Error('Please complete the borrowing form and select tools before submitting');
+          throw new Error('Silakan lengkapi formulir peminjaman dan pilih alat sebelum mengirim');
         }
 
         if (!consumeComplete) {
-          throw new Error('Please complete the consumption form and set material quantities before submitting');
+          throw new Error('Silakan lengkapi formulir konsumsi dan atur jumlah material sebelum mengirim');
         }
 
         // Validate material quantities
@@ -461,12 +461,12 @@ export function InventorySidebar({
           console.log('Processing borrow transaction...');
             // Validate required fields for borrowing
             if (!borrowForm.borrowerName || !borrowForm.dueDate || !borrowForm.purpose) {
-              throw new Error('Please fill all required fields for borrowing');
+              throw new Error('Silakan lengkapi semua kolom yang wajib diisi untuk peminjaman');
             }
 
             const dueDate = new Date(borrowForm.dueDate);
             if (isNaN(dueDate.getTime())) {
-              throw new Error('Invalid due date');
+              throw new Error('Tanggal jatuh tempo tidak valid');
             }
 
             // Validate unit selection
@@ -476,7 +476,7 @@ export function InventorySidebar({
 
             if (toolsWithoutUnits.length > 0) {
               const toolNames = toolsWithoutUnits.map(t => t.name).join(', ');
-              throw new Error(`Please select at least one unit for: ${toolNames}`);
+              throw new Error(`Silakan pilih setidaknya satu unit untuk: ${toolNames}`);
             }
 
             // Validate borrow quantities for smart mode
@@ -491,7 +491,7 @@ export function InventorySidebar({
 
             if (toolsWithInvalidQuantities.length > 0) {
               const toolNames = toolsWithInvalidQuantities.map(t => t.name).join(', ');
-              throw new Error(`Quantity mismatch for: ${toolNames}. Please check your selection.`);
+              throw new Error(`Ketidakcocokan jumlah untuk: ${toolNames}. Silakan periksa pilihan Anda.`);
             }
 
             const borrowPayload = {
@@ -514,7 +514,7 @@ export function InventorySidebar({
           console.log('Processing consume transaction...');
               // Validate required fields for consuming
               if (!consumeForm.consumerName || !consumeForm.purpose) {
-                throw new Error('Please fill all required fields for consumption');
+                throw new Error('Silakan lengkapi semua kolom yang wajib diisi untuk konsumsi');
               }
 
               // Enhanced material quantity validation
@@ -524,7 +524,7 @@ export function InventorySidebar({
 
               if (materialsWithZeroQuantity.length > 0) {
                 const materialNames = materialsWithZeroQuantity.map(m => m.name).join(', ');
-                throw new Error(`Please specify consumption quantity for: ${materialNames}`);
+                throw new Error(`Silakan tentukan jumlah konsumsi untuk: ${materialNames}`);
               }
 
               // Validate material quantities
@@ -554,10 +554,10 @@ export function InventorySidebar({
       onClose();
     } catch (error) {
       console.error('Form submission error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An error occurred while processing the form';
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan saat memproses formulir';
       toast({
         type: 'error',
-        title: 'Form Submission Failed',
+        title: 'Pengiriman Formulir Gagal',
         description: errorMessage
       });
     }
@@ -765,11 +765,11 @@ export function InventorySidebar({
 
   const getTitle = (): string => {
     switch (type) {
-      case 'create': return 'Create Items';
+      case 'create': return 'Buat Item';
       case 'edit': return 'Edit Item';
-      case 'process': return 'Process Transaction';
-      case 'delete': return 'Delete Items';
-      default: return 'Form';
+      case 'process': return 'Proses Transaksi';
+      case 'delete': return 'Hapus Item';
+      default: return 'Formulir';
     }
   };
 
@@ -779,11 +779,11 @@ export function InventorySidebar({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Add multiple tools and/or materials in one transaction
+          Tambahkan beberapa alat dan/atau material dalam satu transaksi
         </p>
         <Button type="button" size="sm" onClick={addNewItem}>
           <Plus className="w-4 h-4 mr-1" />
-          Add Item
+          Tambah Item
         </Button>
       </div>
 
@@ -869,7 +869,7 @@ export function InventorySidebar({
               <div className="col-span-2">
                 <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center justify-between">
-                    <h5 className="font-medium text-blue-900">Condition Distribution</h5>
+                    <h5 className="font-medium text-blue-900">Distribusi Kondisi</h5>
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -879,14 +879,14 @@ export function InventorySidebar({
                         className="h-4 w-4"
                       />
                       <Label htmlFor={`use-default-${index}`} className="text-sm text-blue-800">
-                        Use default condition for all units
+                        Gunakan kondisi default untuk semua unit
                       </Label>
                     </div>
                   </div>
 
                   {item.useDefaultCondition ? (
                     <div>
-                      <Label className="text-blue-800">Default Condition for All {item.quantity} Units</Label>
+                      <Label className="text-blue-800">Kondisi Default untuk Semua {item.quantity} Unit</Label>
                       <Select
                         value={item.defaultCondition}
                         onValueChange={(value) => {
@@ -915,13 +915,13 @@ export function InventorySidebar({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <Label className="text-blue-800">Custom Condition Distribution</Label>
+                      <Label className="text-blue-800">Distribusi Kondisi Kustom</Label>
                       <div className="grid grid-cols-2 gap-3">
                         {[
-                          { key: 'excellent', label: 'Excellent', color: 'text-green-700', bgColor: 'bg-green-50' },
-                          { key: 'good', label: 'Good', color: 'text-blue-700', bgColor: 'bg-blue-50' },
-                          { key: 'fair', label: 'Fair', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
-                          { key: 'poor', label: 'Poor', color: 'text-red-700', bgColor: 'bg-red-50' }
+                          { key: 'excellent', label: 'Sangat Baik', color: 'text-green-700', bgColor: 'bg-green-50' },
+                          { key: 'good', label: 'Baik', color: 'text-blue-700', bgColor: 'bg-blue-50' },
+                          { key: 'fair', label: 'Cukup', color: 'text-yellow-700', bgColor: 'bg-yellow-50' },
+                          { key: 'poor', label: 'Buruk', color: 'text-red-700', bgColor: 'bg-red-50' }
                         ].map(({ key, label, color, bgColor }) => (
                           <div key={key} className={`p-2 rounded border ${bgColor}`}>
                             <Label className={`text-xs font-medium ${color}`}>{label}</Label>
@@ -942,7 +942,7 @@ export function InventorySidebar({
 
                       {/* Distribution Summary */}
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-blue-700">Total Units:</span>
+                        <span className="text-blue-700">Total Unit:</span>
                         <span className="font-semibold text-blue-900">
                           {Object.values(item.conditionDistribution || {}).reduce((sum, count) => sum + count, 0)}
                         </span>
@@ -952,7 +952,7 @@ export function InventorySidebar({
                       {Object.values(item.conditionDistribution || {}).reduce((sum, count) => sum + count, 0) !== item.quantity && (
                         <div className="flex items-center space-x-2 text-amber-700 bg-amber-50 p-2 rounded text-xs">
                           <AlertTriangle className="w-4 h-4" />
-                          <span>Total distribution should equal quantity ({item.quantity})</span>
+                          <span>Total distribusi harus sama dengan jumlah ({item.quantity})</span>
                         </div>
                       )}
                     </div>
@@ -964,14 +964,14 @@ export function InventorySidebar({
             {item.type === 'material' && (
               <div className="col-span-2">
                 <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <h5 className="font-medium text-purple-900">Material Configuration</h5>
+                  <h5 className="font-medium text-purple-900">Konfigurasi Material</h5>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Unit of Measurement</Label>
+                      <Label>Satuan Pengukuran</Label>
                       <Select value={item.unit} onValueChange={(value) => updateNewItem(index, 'unit', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
+                          <SelectValue placeholder="Pilih satuan" />
                         </SelectTrigger>
                         <SelectContent>
                           {units.map((unit) => (
@@ -1112,8 +1112,8 @@ export function InventorySidebar({
     return (
       <Tabs value={editTab} onValueChange={(value: string) => setEditTab(value as 'basic' | 'quantities')} className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="quantities">Quantities</TabsTrigger>
+          <TabsTrigger value="basic">Info Dasar</TabsTrigger>
+          <TabsTrigger value="quantities">Jumlah</TabsTrigger>
         </TabsList>
         
         <TabsContent value="basic" className="space-y-4">
@@ -1144,7 +1144,7 @@ export function InventorySidebar({
           {/* Read-only quantity display */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="quantityDisplay">Current Quantity</Label>
+              <Label htmlFor="quantityDisplay">Jumlah Saat Ini</Label>
               <Input
                 id="quantityDisplay"
                 type="number"
@@ -1152,12 +1152,12 @@ export function InventorySidebar({
                 disabled
                 className="bg-gray-100 text-gray-500 cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 mt-1">Use the &ldquo;Quantities&rdquo; tab to adjust quantities</p>
+              <p className="text-xs text-gray-500 mt-1">Gunakan tab "Jumlah" untuk menyesuaikan jumlah</p>
             </div>
 
             {editItem?.type === 'material' && (
               <div>
-                <Label htmlFor="unit">Unit</Label>
+                <Label htmlFor="unit">Satuan</Label>
                 <Select value={formData.unit || ''} onValueChange={(value: string) => setFormData((prev) => ({ ...prev, unit: value }))}>
                   <SelectTrigger>
                     <SelectValue />
@@ -1194,7 +1194,7 @@ export function InventorySidebar({
 
           {editItem?.type === 'material' && (
             <div>
-              <Label htmlFor="threshold">Low Stock Threshold</Label>
+              <Label htmlFor="threshold">Ambang Batas Stok Rendah</Label>
               <Input
                 id="threshold"
                 type="number"
@@ -1208,14 +1208,14 @@ export function InventorySidebar({
         
         <TabsContent value="quantities" className="space-y-4">
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="font-medium text-blue-900 mb-2">Quantity Management</h3>
-            <p className="text-sm text-blue-700">Add or remove items from the current stock. Use positive numbers to add, negative to subtract.</p>
+            <h3 className="font-medium text-blue-900 mb-2">Manajemen Jumlah</h3>
+            <p className="text-sm text-blue-700">Tambah atau kurangi item dari stok saat ini. Gunakan angka positif untuk menambah, negatif untuk mengurangi.</p>
           </div>
           
           {editItem?.type === 'tool' ? (
             <div className="space-y-4">
               <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-medium mb-3">Tool Quantities</h4>
+                <h4 className="font-medium mb-3">Jumlah Alat</h4>
                 <div className="space-y-4">
                   <div className="p-3 bg-white rounded-lg border border-gray-200">
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">Current Total Quantity</Label>
@@ -2523,7 +2523,7 @@ export function InventorySidebar({
                   onClick={onClose}
                   className="flex-1 hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all duration-200"
                 >
-                  Cancel
+                  Batal
                 </Button>
                 <Button
                   type="submit"
@@ -2552,38 +2552,38 @@ export function InventorySidebar({
                   {type === 'create' && (
                     <>
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Items
+                      Buat Item
                     </>
                   )}
                   {type === 'edit' && (
                     <>
                       <Package className="w-4 h-4 mr-2" />
-                      Save Changes
+                      Simpan Perubahan
                     </>
                   )}
                   {type === 'process' && hasMixed && (
                     <>
                       <Wrench className="w-4 h-4 mr-1" />
                       <Package className="w-4 h-4 mr-2" />
-                      Process Mixed Transaction
+                      Proses Transaksi Campuran
                     </>
                   )}
                   {type === 'process' && !hasMixed && processType === 'borrow' && (
                     <>
                       <Wrench className="w-4 h-4 mr-2" />
-                      Process Borrowing
+                      Proses Peminjaman
                     </>
                   )}
                   {type === 'process' && !hasMixed && processType === 'consume' && (
                     <>
                       <Package className="w-4 h-4 mr-2" />
-                      Process Consumption
+                      Proses Konsumsi
                     </>
                   )}
                   {type === 'delete' && (
                     <>
                       <AlertTriangle className="w-4 h-4 mr-2" />
-                      Delete Items
+                      Hapus Item
                     </>
                   )}
                 </Button>

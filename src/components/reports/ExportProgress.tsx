@@ -71,7 +71,7 @@ export function ExportProgress({ progress, className }: ExportProgressProps) {
                 />
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                {progress.progress}% complete
+                {progress.progress}% selesai
               </p>
             </div>
           )}

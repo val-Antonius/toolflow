@@ -299,10 +299,10 @@ export function DynamicFilters({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold">Filters</h3>
+          <h3 className="text-sm font-semibold">Filter</h3>
           {activeFiltersCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {activeFiltersCount} active
+              {activeFiltersCount} aktif
             </Badge>
           )}
         </div>
@@ -316,7 +316,7 @@ export function DynamicFilters({
             className="h-8 px-2 text-xs"
           >
             <RotateCcw className="w-3 h-3 mr-1" />
-            Reset
+            Atur Ulang
           </Button>
         </div>
       </div>
@@ -339,12 +339,12 @@ export function DynamicFilters({
           {isLoading ? (
             <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-              Generating...
+              Membuat...
             </>
           ) : (
             <>
               <Filter className="w-4 h-4 mr-2" />
-              Apply Filters
+              Terapkan Filter
             </>
           )}
         </Button>

@@ -125,13 +125,18 @@ interface ApiResponse<T> {
 }
 
 // API functions
-const fetchTools = async (searchQuery: string = ''): Promise<Tool[]> => {
+const fetchTools = async (searchQuery: string = '', page: number = 1, limit: number = 100): Promise<Tool[]> => {
   try {
     const params = new URLSearchParams();
     if (searchQuery) params.append('search', searchQuery);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
 
+    console.log('Fetching tools with params:', params.toString());
     const response = await fetch(`/api/tools?${params.toString()}`);
     const result: ApiResponse<Tool[]> = await response.json();
+
+    console.log('Tools API response:', result);
 
     if (result.success && result.data) {
       return result.data.map((tool) => ({
@@ -155,13 +160,18 @@ const fetchTools = async (searchQuery: string = ''): Promise<Tool[]> => {
   }
 };
 
-const fetchMaterials = async (searchQuery: string = ''): Promise<Material[]> => {
+const fetchMaterials = async (searchQuery: string = '', page: number = 1, limit: number = 100): Promise<Material[]> => {
   try {
     const params = new URLSearchParams();
     if (searchQuery) params.append('search', searchQuery);
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
 
+    console.log('Fetching materials with params:', params.toString());
     const response = await fetch(`/api/materials?${params.toString()}`);
     const result: ApiResponse<Material[]> = await response.json();
+
+    console.log('Materials API response:', result);
 
     if (result.success && result.data) {
       return result.data.map((material) => ({
@@ -258,8 +268,8 @@ useEffect(() => {
     setLoading(true);
     try {
       const [toolsData, materialsData, categoriesData] = await Promise.all([
-        fetchTools(''),
-        fetchMaterials(''),
+        fetchTools('', 1, 100), // Load all tools with high limit
+        fetchMaterials('', 1, 100), // Load all materials with high limit
         fetch('/api/categories').then(res => res.json()).then(res => res.success ? res.data : [])
       ]);
       setTools(toolsData);
@@ -283,8 +293,8 @@ useEffect(() => {
     setIsSearching(true);
     try {
       const [toolsData, materialsData] = await Promise.all([
-        fetchTools(searchQuery),
-        fetchMaterials(searchQuery)
+        fetchTools(searchQuery, 1, 100), // Load all search results with high limit
+        fetchMaterials(searchQuery, 1, 100) // Load all search results with high limit
       ]);
       setTools(toolsData);
       setMaterials(materialsData);
@@ -651,8 +661,8 @@ useEffect(() => {
       // Panggil ulang data (keep current search, but no full-page loading)
       setIsSearching(true);
       const [toolsData, materialsData] = await Promise.all([
-        fetchTools(searchQuery),
-        fetchMaterials(searchQuery)
+        fetchTools(searchQuery, 1, 100), // Load all data with high limit
+        fetchMaterials(searchQuery, 1, 100) // Load all data with high limit
       ]);
       hideLoading();
       setTools(toolsData);
@@ -687,6 +697,12 @@ useEffect(() => {
   const totalMaterialPages = Math.max(1, Math.ceil(materials.length / pageSize));
   const paginatedTools = tools.slice((toolPage - 1) * pageSize, toolPage * pageSize);
   const paginatedMaterials = materials.slice((materialPage - 1) * pageSize, materialPage * pageSize);
+  
+  // Debug pagination state
+  console.log('Pagination Debug:', {
+    tools: { length: tools.length, page: toolPage, totalPages: totalToolPages },
+    materials: { length: materials.length, page: materialPage, totalPages: totalMaterialPages }
+  });
 
   // Selection helpers should operate on current page items only
   const currentTabItems = activeTab === 'tools' ? paginatedTools : paginatedMaterials;
@@ -1137,9 +1153,39 @@ useEffect(() => {
                 {Math.min(toolPage * pageSize, tools.length)} of {tools.length}
               </div>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" disabled={toolPage === 1} onClick={() => setToolPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={toolPage === 1} 
+                  onClick={() => {
+                    console.log('Prev button clicked, current page:', toolPage);
+                    setToolPage(prev => {
+                      const newPage = Math.max(1, prev - 1);
+                      console.log('Setting tool page to:', newPage);
+                      return newPage;
+                    });
+                  }}
+                >
+                  Prev
+                </Button>
                 <div className="text-sm">Page {toolPage} / {totalToolPages}</div>
-                <Button variant="outline" size="sm" disabled={toolPage === totalToolPages} onClick={() => setToolPage(p => Math.min(totalToolPages, p + 1))}>Next</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={toolPage >= totalToolPages} 
+                  onClick={() => {
+                    console.log('Next button clicked, current page:', toolPage, 'total pages:', totalToolPages);
+                    if (toolPage < totalToolPages) {
+                      setToolPage(prev => {
+                        const newPage = Math.min(totalToolPages, prev + 1);
+                        console.log('Setting tool page to:', newPage);
+                        return newPage;
+                      });
+                    }
+                  }}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           </div>
@@ -1375,9 +1421,39 @@ useEffect(() => {
                 {Math.min(materialPage * pageSize, materials.length)} of {materials.length}
               </div>
               <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" disabled={materialPage === 1} onClick={() => setMaterialPage(p => Math.max(1, p - 1))}>Prev</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={materialPage === 1} 
+                  onClick={() => {
+                    console.log('Prev button clicked, current material page:', materialPage);
+                    setMaterialPage(prev => {
+                      const newPage = Math.max(1, prev - 1);
+                      console.log('Setting material page to:', newPage);
+                      return newPage;
+                    });
+                  }}
+                >
+                  Prev
+                </Button>
                 <div className="text-sm">Page {materialPage} / {totalMaterialPages}</div>
-                <Button variant="outline" size="sm" disabled={materialPage === totalMaterialPages} onClick={() => setMaterialPage(p => Math.min(totalMaterialPages, p + 1))}>Next</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={materialPage >= totalMaterialPages} 
+                  onClick={() => {
+                    console.log('Next button clicked, current material page:', materialPage, 'total pages:', totalMaterialPages);
+                    if (materialPage < totalMaterialPages) {
+                      setMaterialPage(prev => {
+                        const newPage = Math.min(totalMaterialPages, prev + 1);
+                        console.log('Setting material page to:', newPage);
+                        return newPage;
+                      });
+                    }
+                  }}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           </div>

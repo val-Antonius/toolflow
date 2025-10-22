@@ -118,7 +118,7 @@ const generateUnifiedReport = async (
   try {
     const config = getReportConfig(reportType);
     if (!config) {
-      throw new Error('Invalid report type');
+      throw new Error('Tipe laporan tidak valid');
     }
 
     // Transform filters to API format
@@ -212,7 +212,7 @@ const generateUnifiedReport = async (
     console.error('Error generating report:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate report'
+      error: error instanceof Error ? error.message : 'Gagal membuat laporan'
     };
   }
 };
@@ -285,7 +285,7 @@ export default function Reports() {
       setReportState(prev => ({
         ...prev,
         isLoading: false,
-        error: 'Failed to load report configuration'
+        error: 'Gagal memuat konfigurasi laporan'
       }));
     }
   };
@@ -342,7 +342,7 @@ export default function Reports() {
         setReportState(prev => ({
           ...prev,
           isLoading: false,
-          error: result.error || 'Failed to generate report'
+          error: result.error || 'Gagal membuat laporan'
         }));
       }
     } catch (error) {
@@ -350,7 +350,7 @@ export default function Reports() {
       setReportState(prev => ({
         ...prev,
         isLoading: false,
-        error: 'An unexpected error occurred'
+        error: 'Terjadi kesalahan yang tidak terduga'
       }));
     }
   };
@@ -401,9 +401,9 @@ export default function Reports() {
   // Revolutionary render methods
   const renderStepIndicator = () => {
     const steps = [
-      { key: 'select-type', label: 'Select Report Type', icon: FileText },
-      { key: 'configure-filters', label: 'Configure Filters', icon: Filter },
-      { key: 'preview-results', label: 'Preview Results', icon: BarChart3 }
+      { key: 'select-type', label: 'Pilih Tipe Laporan', icon: FileText },
+      { key: 'configure-filters', label: 'Konfigurasi Filter', icon: Filter },
+      { key: 'preview-results', label: 'Pratinjau Hasil', icon: BarChart3 }
     ];
 
     return (
@@ -462,7 +462,7 @@ export default function Reports() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Report Types</span>
+                <span>Kembali ke Tipe Laporan</span>
               </Button>
             </div>
 
@@ -534,7 +534,7 @@ export default function Reports() {
                 className="flex items-center space-x-2"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Filters</span>
+                <span>Kembali ke Filter</span>
               </Button>
 
               <Button
@@ -543,7 +543,7 @@ export default function Reports() {
                 className="flex items-center space-x-2"
               >
                 <Settings className="w-4 h-4" />
-                <span>Change Report Type</span>
+                <span>Ubah Tipe Laporan</span>
               </Button>
             </div>
 
@@ -572,9 +572,9 @@ export default function Reports() {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-3xl font-bold text-foreground">Advanced Reports</h1>
+        <h1 className="text-3xl font-bold text-foreground">Laporan Lanjutan</h1>
         <p className="text-muted-foreground mt-2">
-          Revolutionary dynamic reporting system with context-aware filtering
+          Sistem pelaporan dinamis revolusioner dengan filter yang sadar konteks
         </p>
       </div>
 

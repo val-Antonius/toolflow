@@ -159,7 +159,7 @@ export function UnifiedReportPreview({
       <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <span>
-            Showing {((page - 1) * pagination.limit) + 1} to {Math.min(page * pagination.limit, total)} of {total} results
+            Menampilkan {((page - 1) * pagination.limit) + 1} sampai {Math.min(page * pagination.limit, total)} dari {total} hasil
           </span>
         </div>
         
@@ -295,8 +295,8 @@ export function UnifiedReportPreview({
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No data found for the selected filters</p>
-              <p className="text-sm text-gray-500 mt-1">Try adjusting your filter criteria</p>
+              <p className="text-gray-600">Tidak ada data ditemukan untuk filter yang dipilih</p>
+              <p className="text-sm text-gray-500 mt-1">Coba sesuaikan kriteria filter Anda</p>
             </div>
           </div>
         </div>

@@ -20,20 +20,20 @@ export function ReportTypeSelector({
   const categories = [
     {
       key: 'transaction',
-      label: 'Transaction Reports',
-      description: 'Track borrowing and consumption activities',
+      label: 'Laporan Transaksi',
+      description: 'Lacak aktivitas peminjaman dan konsumsi',
       color: 'blue'
     },
     {
       key: 'inventory',
-      label: 'Inventory Reports',
-      description: 'Monitor tools and materials stock levels',
+      label: 'Laporan Inventori',
+      description: 'Pantau tingkat stok alat dan material',
       color: 'green'
     },
     {
       key: 'analytics',
-      label: 'Analytics Reports',
-      description: 'Historical data and insights',
+      label: 'Laporan Analitik',
+      description: 'Data historis dan wawasan',
       color: 'purple'
     }
   ];
@@ -133,7 +133,7 @@ export function ReportTypeSelector({
                             </h4>
                             {isSelected && (
                               <Badge className={colorClasses.badge}>
-                                Selected
+                                Dipilih
                               </Badge>
                             )}
                           </div>
@@ -146,16 +146,16 @@ export function ReportTypeSelector({
                           <div className="flex flex-wrap gap-2">
                             {report.supportsPagination && (
                               <Badge variant="outline" className="text-xs">
-                                Paginated
+                                Berhalaman
                               </Badge>
                             )}
                             {report.supportsExport && (
                               <Badge variant="outline" className="text-xs">
-                                Exportable
+                                Dapat Diekspor
                               </Badge>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {report.filters.length} filters
+                              {report.filters.length} filter
                             </Badge>
                           </div>
                         </div>

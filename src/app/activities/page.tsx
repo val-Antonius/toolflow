@@ -381,6 +381,7 @@ export default function Activities() {
     (borrowingTransactionPage - 1) * pageSize,
     borrowingTransactionPage * pageSize
   );
+  
 
   // Filter & paginate Consuming
   const filteredConsumptions = consumptions.filter(consumption =>
@@ -420,6 +421,13 @@ export default function Activities() {
     (historyTransactionPage - 1) * pageSize,
     historyTransactionPage * pageSize
   );
+  
+  // Debug pagination state
+  console.log('Activities Pagination Debug:', {
+    borrowings: { length: filteredBorrowings.length, page: borrowingTransactionPage, totalPages: totalBorrowingTransactionPages },
+    consumptions: { length: filteredConsumptions.length, page: consumingTransactionPage, totalPages: totalConsumingTransactionPages },
+    history: { length: filteredHistory.length, page: historyTransactionPage, totalPages: totalHistoryTransactionPages }
+  });
 
   if (loading) {
     return (
@@ -594,11 +602,39 @@ export default function Activities() {
                   {Math.min(borrowingTransactionPage * pageSize, filteredBorrowings.length)} of {filteredBorrowings.length}
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" disabled={borrowingTransactionPage === 1}
-                    onClick={() => setBorrowingTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={borrowingTransactionPage === 1}
+                    onClick={() => {
+                      console.log('Prev borrowing button clicked, current page:', borrowingTransactionPage);
+                      setBorrowingTransactionPage(prev => {
+                        const newPage = Math.max(1, prev - 1);
+                        console.log('Setting borrowing page to:', newPage);
+                        return newPage;
+                      });
+                    }}
+                  >
+                    Prev
+                  </Button>
                   <div className="text-sm">Page {borrowingTransactionPage} / {totalBorrowingTransactionPages}</div>
-                  <Button variant="outline" size="sm" disabled={borrowingTransactionPage === totalBorrowingTransactionPages}
-                    onClick={() => setBorrowingTransactionPage(p => Math.min(totalBorrowingTransactionPages, p + 1))}>Next</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={borrowingTransactionPage >= totalBorrowingTransactionPages}
+                    onClick={() => {
+                      console.log('Next borrowing button clicked, current page:', borrowingTransactionPage, 'total pages:', totalBorrowingTransactionPages);
+                      if (borrowingTransactionPage < totalBorrowingTransactionPages) {
+                        setBorrowingTransactionPage(prev => {
+                          const newPage = Math.min(totalBorrowingTransactionPages, prev + 1);
+                          console.log('Setting borrowing page to:', newPage);
+                          return newPage;
+                        });
+                      }
+                    }}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
             </div>
@@ -683,11 +719,39 @@ export default function Activities() {
                   {Math.min(consumingTransactionPage * pageSize, filteredConsumptions.length)} of {filteredConsumptions.length}
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" disabled={consumingTransactionPage === 1}
-                    onClick={() => setConsumingTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={consumingTransactionPage === 1}
+                    onClick={() => {
+                      console.log('Prev consuming button clicked, current page:', consumingTransactionPage);
+                      setConsumingTransactionPage(prev => {
+                        const newPage = Math.max(1, prev - 1);
+                        console.log('Setting consuming page to:', newPage);
+                        return newPage;
+                      });
+                    }}
+                  >
+                    Prev
+                  </Button>
                   <div className="text-sm">Page {consumingTransactionPage} / {totalConsumingTransactionPages}</div>
-                  <Button variant="outline" size="sm" disabled={consumingTransactionPage === totalConsumingTransactionPages}
-                    onClick={() => setConsumingTransactionPage(p => Math.min(totalConsumingTransactionPages, p + 1))}>Next</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={consumingTransactionPage >= totalConsumingTransactionPages}
+                    onClick={() => {
+                      console.log('Next consuming button clicked, current page:', consumingTransactionPage, 'total pages:', totalConsumingTransactionPages);
+                      if (consumingTransactionPage < totalConsumingTransactionPages) {
+                        setConsumingTransactionPage(prev => {
+                          const newPage = Math.min(totalConsumingTransactionPages, prev + 1);
+                          console.log('Setting consuming page to:', newPage);
+                          return newPage;
+                        });
+                      }
+                    }}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
             </div>
@@ -937,11 +1001,39 @@ export default function Activities() {
                   {Math.min(historyTransactionPage * pageSize, filteredHistory.length)} of {filteredHistory.length}
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm" disabled={historyTransactionPage === 1}
-                    onClick={() => setHistoryTransactionPage(p => Math.max(1, p - 1))}>Prev</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={historyTransactionPage === 1}
+                    onClick={() => {
+                      console.log('Prev history button clicked, current page:', historyTransactionPage);
+                      setHistoryTransactionPage(prev => {
+                        const newPage = Math.max(1, prev - 1);
+                        console.log('Setting history page to:', newPage);
+                        return newPage;
+                      });
+                    }}
+                  >
+                    Prev
+                  </Button>
                   <div className="text-sm">Page {historyTransactionPage} / {totalHistoryTransactionPages}</div>
-                  <Button variant="outline" size="sm" disabled={historyTransactionPage === totalHistoryTransactionPages}
-                    onClick={() => setHistoryTransactionPage(p => Math.min(totalHistoryTransactionPages, p + 1))}>Next</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={historyTransactionPage >= totalHistoryTransactionPages}
+                    onClick={() => {
+                      console.log('Next history button clicked, current page:', historyTransactionPage, 'total pages:', totalHistoryTransactionPages);
+                      if (historyTransactionPage < totalHistoryTransactionPages) {
+                        setHistoryTransactionPage(prev => {
+                          const newPage = Math.min(totalHistoryTransactionPages, prev + 1);
+                          console.log('Setting history page to:', newPage);
+                          return newPage;
+                        });
+                      }
+                    }}
+                  >
+                    Next
+                  </Button>
                 </div>
               </div>
             </div>
