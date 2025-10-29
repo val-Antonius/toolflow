@@ -1152,7 +1152,7 @@ export function InventorySidebar({
                 disabled
                 className="bg-gray-100 text-gray-500 cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 mt-1">Gunakan tab "Jumlah" untuk menyesuaikan jumlah</p>
+              <p className="text-xs text-gray-500 mt-1">Gunakan tab &quot;Jumlah&quot; untuk menyesuaikan jumlah</p>
             </div>
 
             {editItem?.type === 'material' && (
@@ -1897,11 +1897,6 @@ export function InventorySidebar({
     })));
 
     const totalMaterials = items.length;
-    const totalValue = items.reduce((sum, item) => {
-      const qty = itemQuantities[item.id] || 0.001;
-      const price = item.unitPrice || 0;
-      return sum + (qty * price);
-    }, 0);
 
     return (
       <div className="space-y-6">
