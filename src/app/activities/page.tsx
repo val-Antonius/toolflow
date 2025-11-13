@@ -87,6 +87,7 @@ interface ConsumptionTransaction {
 // API functions
 const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]> => {
   try {
+    // Fetch all borrowings without API pagination by setting a high limit
     const params = new URLSearchParams();
     if (status) {
       // Handle comma-separated statuses
@@ -96,6 +97,8 @@ const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]>
         params.append('status', status);
       }
     }
+    // Set a high limit to fetch all records
+    params.append('limit', '10000');
 
     console.log('Fetching borrowings with params:', params.toString());
     const response = await fetch(`/api/borrowings?${params.toString()}`);
@@ -122,8 +125,14 @@ const fetchBorrowings = async (status?: string): Promise<BorrowingTransaction[]>
 
 const fetchConsumptions = async (): Promise<ConsumptionTransaction[]> => {
   try {
-    const response = await fetch('/api/consumptions');
+    // Fetch all consumptions without API pagination by setting a high limit
+    const params = new URLSearchParams();
+    params.append('limit', '10000');
+
+    const response = await fetch(`/api/consumptions?${params.toString()}`);
     const result = await response.json();
+
+    console.log('Consumptions API response:', result);
 
     if (result.success) {
       return result.data;
@@ -160,7 +169,7 @@ export default function Activities() {
   const { showLoading, hideLoading } = useLoading();
   const { toast } = useToast();
 
-  // Load data
+  // Load data on mount and when tab changes
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -172,9 +181,15 @@ export default function Activities() {
 
         setBorrowings(borrowingsData);
         setConsumptions(consumptionsData);
-        setBorrowingTransactionPage(1);
-        setConsumingTransactionPage(1);
-        setHistoryTransactionPage(1)
+        
+        // Only reset pagination for active tab that was switched to
+        if (activeTab === 'borrowing') {
+          setBorrowingTransactionPage(1);
+        } else if (activeTab === 'consuming') {
+          setConsumingTransactionPage(1);
+        } else if (activeTab === 'history') {
+          setHistoryTransactionPage(1);
+        }
       } catch (error) {
         console.error('Error loading activities data:', error);
       } finally {
@@ -185,7 +200,38 @@ export default function Activities() {
     loadData();
   }, [activeTab]);
 
+  // Also load data on initial mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        const [borrowingsData, consumptionsData] = await Promise.all([
+          fetchBorrowings('ACTIVE, OVERDUE'),
+          fetchConsumptions()
+        ]);
 
+        setBorrowings(borrowingsData);
+        setConsumptions(consumptionsData);
+      } catch (error) {
+        console.error('Error loading initial activities data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []); // Empty dependency array means this runs only once on mount
+
+  // Reset pagination when search query changes
+  useEffect(() => {
+    if (activeTab === 'borrowing') {
+      setBorrowingTransactionPage(1);
+    } else if (activeTab === 'consuming') {
+      setConsumingTransactionPage(1);
+    } else if (activeTab === 'history') {
+      setHistoryTransactionPage(1);
+    }
+  }, [searchQuery, activeTab]);
 
   const handleReturnClick = (borrowing: BorrowingTransaction) => {
     setSelectedBorrowing(borrowing);
