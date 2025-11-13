@@ -210,7 +210,7 @@ export function ContextualSidebar({ isOpen, onClose, type, borrowing, onSubmit }
       />
       
       {/* Sidebar */}
-      <div className="ml-auto w-full max-w-lg glass border-l border-white/20 h-full overflow-y-auto transition-all-smooth">
+      <div className="ml-auto w-full max-w-lg glass border-l border-white/20 h-screen overflow-y-auto transition-all-smooth">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">

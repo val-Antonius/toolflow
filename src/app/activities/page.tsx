@@ -22,6 +22,7 @@ import {
   FileText,
   ArrowUpRight
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 
 // Types
@@ -1088,6 +1089,8 @@ export default function Activities() {
       </Tabs>
 
       {/* Contextual Sidebar */}
+      {/* Menggunakan Portal Ke Body */}
+      {sidebarOpen && typeof window !== 'undefined' && createPortal(
       <ContextualSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -1113,7 +1116,9 @@ export default function Activities() {
           purpose: selectedBorrowing.purpose || 'No purpose specified'
         } : undefined}
         onSubmit={handleFormSubmit}
-      />
+      />,
+      document.body
+      )}
     </div>
   );
 }
